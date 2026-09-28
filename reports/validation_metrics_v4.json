@@ -1,0 +1,409 @@
+{
+  "evaluation": "5-fold StratifiedGroupKFold by study; duplicate images never cross folds",
+  "seed": 42,
+  "elapsed_seconds": 18.45,
+  "dataset": {
+    "studies": 100,
+    "images": 499,
+    "label_source": "разметка.xlsx"
+  },
+  "metrics": {
+    "spine_quality": {
+      "images": 172,
+      "series_samples": 99,
+      "studies": 99,
+      "positive_images": 61,
+      "pooling": "max",
+      "oof_threshold": 0.35,
+      "oof_positive_rate": 0.4186,
+      "f1": 0.6316,
+      "f1_95_ci": [
+        0.4482,
+        0.7716
+      ],
+      "balanced_accuracy": 0.7091,
+      "balanced_accuracy_95_ci": [
+        0.5909,
+        0.815
+      ],
+      "sensitivity": 0.6885,
+      "specificity": 0.7297,
+      "roc_auc": 0.7418,
+      "roc_auc_95_ci": [
+        0.6241,
+        0.851
+      ],
+      "pr_auc": 0.5757,
+      "pr_auc_95_ci": [
+        0.404,
+        0.781
+      ],
+      "confusion_matrix": [
+        [
+          81,
+          30
+        ],
+        [
+          19,
+          42
+        ]
+      ],
+      "model": {
+        "type": "extra_trees",
+        "min_samples_leaf": 2,
+        "max_features": 0.25,
+        "pooling": "max"
+      },
+      "deployment_threshold": 0.1471,
+      "deployment_threshold_source": "rate_matched",
+      "deployment_positive_rate": 0.4186
+    },
+    "spine_positioning": {
+      "images": 172,
+      "series_samples": 99,
+      "studies": 99,
+      "positive_images": 10,
+      "pooling": "mean",
+      "oof_threshold": 0.2,
+      "oof_positive_rate": 0.0349,
+      "f1": 0.625,
+      "f1_95_ci": [
+        0.1536,
+        1.0
+      ],
+      "balanced_accuracy": 0.7469,
+      "balanced_accuracy_95_ci": [
+        0.55,
+        1.0
+      ],
+      "sensitivity": 0.5,
+      "specificity": 0.9938,
+      "roc_auc": 0.8475,
+      "roc_auc_95_ci": [
+        0.7039,
+        1.0
+      ],
+      "pr_auc": 0.5422,
+      "pr_auc_95_ci": [
+        0.2171,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          161,
+          1
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "model": {
+        "type": "extra_trees",
+        "min_samples_leaf": 1,
+        "max_features": 0.25,
+        "pooling": "mean"
+      },
+      "deployment_threshold": 0.2,
+      "deployment_threshold_source": "out_of_fold",
+      "deployment_positive_rate": 0.0581
+    },
+    "spine_axis_deviation": {
+      "images": 172,
+      "series_samples": 99,
+      "studies": 99,
+      "positive_images": 17,
+      "pooling": "mean",
+      "oof_threshold": 0.2,
+      "oof_positive_rate": 0.1337,
+      "f1": 0.35,
+      "f1_95_ci": [
+        0.074,
+        0.5959
+      ],
+      "balanced_accuracy": 0.6543,
+      "balanced_accuracy_95_ci": [
+        0.4885,
+        0.8331
+      ],
+      "sensitivity": 0.4118,
+      "specificity": 0.8968,
+      "roc_auc": 0.6482,
+      "roc_auc_95_ci": [
+        0.3952,
+        0.8601
+      ],
+      "pr_auc": 0.2914,
+      "pr_auc_95_ci": [
+        0.0726,
+        0.635
+      ],
+      "confusion_matrix": [
+        [
+          139,
+          16
+        ],
+        [
+          10,
+          7
+        ]
+      ],
+      "model": {
+        "type": "extra_trees",
+        "min_samples_leaf": 1,
+        "max_features": "sqrt",
+        "pooling": "mean"
+      },
+      "deployment_threshold": 0.2,
+      "deployment_threshold_source": "out_of_fold",
+      "deployment_positive_rate": 0.0988
+    },
+    "foreign_object_or_artifact": {
+      "images": 172,
+      "series_samples": 99,
+      "studies": 99,
+      "positive_images": 35,
+      "pooling": "mean",
+      "oof_threshold": 0.74,
+      "oof_positive_rate": 0.1163,
+      "f1": 0.5818,
+      "f1_95_ci": [
+        0.129,
+        0.8182
+      ],
+      "balanced_accuracy": 0.714,
+      "balanced_accuracy_95_ci": [
+        0.5275,
+        0.8596
+      ],
+      "sensitivity": 0.4571,
+      "specificity": 0.9708,
+      "roc_auc": 0.79,
+      "roc_auc_95_ci": [
+        0.6076,
+        0.9066
+      ],
+      "pr_auc": 0.5733,
+      "pr_auc_95_ci": [
+        0.2184,
+        0.83
+      ],
+      "confusion_matrix": [
+        [
+          133,
+          4
+        ],
+        [
+          19,
+          16
+        ]
+      ],
+      "model": {
+        "type": "linear",
+        "c": 0.1,
+        "pooling": "mean"
+      },
+      "deployment_threshold": 0.7218,
+      "deployment_threshold_source": "rate_matched",
+      "deployment_positive_rate": 0.1163
+    },
+    "hip_quality": {
+      "images": 324,
+      "series_samples": 128,
+      "studies": 76,
+      "positive_images": 90,
+      "pooling": "max",
+      "oof_threshold": 0.36,
+      "oof_positive_rate": 0.4383,
+      "f1": 0.5431,
+      "f1_95_ci": [
+        0.375,
+        0.6887
+      ],
+      "balanced_accuracy": 0.6812,
+      "balanced_accuracy_95_ci": [
+        0.5631,
+        0.7817
+      ],
+      "sensitivity": 0.7,
+      "specificity": 0.6624,
+      "roc_auc": 0.671,
+      "roc_auc_95_ci": [
+        0.5217,
+        0.7977
+      ],
+      "pr_auc": 0.4346,
+      "pr_auc_95_ci": [
+        0.2902,
+        0.6855
+      ],
+      "confusion_matrix": [
+        [
+          155,
+          79
+        ],
+        [
+          27,
+          63
+        ]
+      ],
+      "model": {
+        "type": "extra_trees",
+        "min_samples_leaf": 4,
+        "max_features": 0.25,
+        "pooling": "max"
+      },
+      "deployment_threshold": 0.2704,
+      "deployment_threshold_source": "rate_matched",
+      "deployment_positive_rate": 0.4383
+    },
+    "hip_positioning_or_rotation": {
+      "images": 324,
+      "series_samples": 128,
+      "studies": 76,
+      "positive_images": 71,
+      "pooling": "max",
+      "oof_threshold": 0.67,
+      "oof_positive_rate": 0.2377,
+      "f1": 0.5,
+      "f1_95_ci": [
+        0.2592,
+        0.684
+      ],
+      "balanced_accuracy": 0.6815,
+      "balanced_accuracy_95_ci": [
+        0.5381,
+        0.799
+      ],
+      "sensitivity": 0.5211,
+      "specificity": 0.8419,
+      "roc_auc": 0.6421,
+      "roc_auc_95_ci": [
+        0.4436,
+        0.7919
+      ],
+      "pr_auc": 0.4102,
+      "pr_auc_95_ci": [
+        0.1861,
+        0.6855
+      ],
+      "confusion_matrix": [
+        [
+          213,
+          40
+        ],
+        [
+          34,
+          37
+        ]
+      ],
+      "model": {
+        "type": "linear",
+        "c": 0.1,
+        "pooling": "max"
+      },
+      "deployment_threshold": 0.6105,
+      "deployment_threshold_source": "rate_matched",
+      "deployment_positive_rate": 0.2315
+    },
+    "hip_roi_incorrect": {
+      "images": 324,
+      "series_samples": 128,
+      "studies": 76,
+      "positive_images": 19,
+      "pooling": "max",
+      "oof_threshold": 0.71,
+      "oof_positive_rate": 0.0278,
+      "f1": 0.5714,
+      "f1_95_ci": [
+        0.0,
+        0.9412
+      ],
+      "balanced_accuracy": 0.7089,
+      "balanced_accuracy_95_ci": [
+        0.4964,
+        0.9971
+      ],
+      "sensitivity": 0.4211,
+      "specificity": 0.9967,
+      "roc_auc": 0.9289,
+      "roc_auc_95_ci": [
+        0.7987,
+        0.9947
+      ],
+      "pr_auc": 0.5712,
+      "pr_auc_95_ci": [
+        0.094,
+        0.925
+      ],
+      "confusion_matrix": [
+        [
+          304,
+          1
+        ],
+        [
+          11,
+          8
+        ]
+      ],
+      "model": {
+        "type": "linear",
+        "c": 0.01,
+        "pooling": "max"
+      },
+      "deployment_threshold": 0.8483,
+      "deployment_threshold_source": "rate_matched",
+      "deployment_positive_rate": 0.0247
+    }
+  },
+  "submission_policy": {
+    "policy": "independent thresholded types; any detected type promotes quality_class",
+    "quality": {
+      "spine_quality": {
+        "aggregate_f1": 0.6316,
+        "exported_f1": 0.6486,
+        "roc_auc": 0.7418
+      },
+      "hip_quality": {
+        "aggregate_f1": 0.5431,
+        "exported_f1": 0.5333,
+        "roc_auc": 0.671
+      }
+    },
+    "violations": {
+      "spine_positioning": {
+        "positive_images": 10,
+        "ungated_f1": 0.625,
+        "exported_f1": 0.625
+      },
+      "spine_axis_deviation": {
+        "positive_images": 17,
+        "ungated_f1": 0.35,
+        "exported_f1": 0.35
+      },
+      "foreign_object_or_artifact": {
+        "positive_images": 35,
+        "ungated_f1": 0.5818,
+        "exported_f1": 0.5818
+      },
+      "hip_positioning_or_rotation": {
+        "positive_images": 71,
+        "ungated_f1": 0.5,
+        "exported_f1": 0.5
+      },
+      "hip_roi_incorrect": {
+        "positive_images": 19,
+        "ungated_f1": 0.5714,
+        "exported_f1": 0.5714
+      }
+    },
+    "ungated_violation_macro_f1": 0.5256,
+    "exported_violation_macro_f1": 0.5256
+  },
+  "notes": [
+    "Labels are weak study-level labels propagated to images of the matching anatomical region.",
+    "95% confidence intervals use cluster bootstrap resampling at study level.",
+    "Target-specific estimators were fixed after an exploratory ablation; metrics remain internal and require external validation.",
+    "The supplied data originate from one scanner model; external validation is required."
+  ]
+}

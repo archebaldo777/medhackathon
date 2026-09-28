@@ -1,0 +1,776 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Эвектио — контроль качества денситометрии</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <meta name="theme-color" content="#161616">
+  <style>
+    /* Visual language: dark clinical-software surfaces, one warm accent for AI findings,
+       one blue for actions, Inter-like grotesk with tight tracking. No external assets:
+       the service runs offline, so fonts fall back to the system grotesk. */
+    :root{
+      --bg:#161616;--bg-2:#1c1c1c;--surface:#212121;--surface-2:#262626;--glass:rgba(255,255,255,.04);
+      --line:rgba(255,255,255,.08);--line-2:rgba(255,255,255,.14);
+      --text:#e6e6e6;--text-2:rgba(230,230,230,.72);--muted:rgba(230,230,230,.58);
+      --accent:#b6a6f6;--accent-ink:#241c3d;--accent-dim:rgba(182,166,246,.14);
+      --blue:#1447e6;--blue-2:#2a5cff;--red:#ff7a70;--red-pale:#ffb4ac;--red-ink:#4a120d;--green:#7fe0b4;--green-ink:#123625;--viewer:#0e1726;
+      --radius:20px;--radius-s:12px;--topbar-h:64px;
+      --font:Inter,"SF Pro Display","SF Pro Text",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    }
+    *{box-sizing:border-box}
+    /* Page-by-page scrolling: each full-screen section is a snap point and the browser
+       always stops on the next one — one wheel/swipe/arrow move = one screen, not a
+       smooth glide past several. scroll-behavior still smooths that single jump. */
+    html{scroll-behavior:smooth;scroll-snap-type:y mandatory}
+    .snap{scroll-snap-align:start;scroll-snap-stop:always;scroll-margin-top:var(--topbar-h)}
+    body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 var(--font);letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
+    a{color:inherit}
+    [hidden]{display:none!important}
+    .wrap{width:min(1280px,calc(100% - 48px));margin:0 auto}
+    button,a,.drop{transition:background .18s ease,color .18s ease,border-color .18s ease,transform .18s ease,box-shadow .18s ease}
+    :focus-visible{outline:2px solid var(--blue-2);outline-offset:3px}
+
+    /* top bar */
+    .topbar{position:sticky;top:0;z-index:20;background:rgba(22,22,22,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+    .topbar .wrap{display:flex;align-items:center;gap:28px;height:64px}
+    .brand{display:flex;align-items:center;gap:12px;text-decoration:none}
+    .brand .logo-mark{height:34px;width:42px;flex:none;background:linear-gradient(135deg,#8577ef 0%,#4c6fff 100%);-webkit-mask-image:url(/static/logo-mark.png);mask-image:url(/static/logo-mark.png);-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}
+    .brand .logo-word{font-size:19px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;background:linear-gradient(135deg,#8577ef 0%,#4c6fff 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .links{display:flex;gap:24px;font-size:14px;color:var(--text-2)}
+    .links a{text-decoration:none}.links a:hover{color:var(--text)}
+    .top-actions{margin-left:auto;display:flex;align-items:center;gap:10px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 20px;border-radius:999px;border:0;font:inherit;font-size:14px;font-weight:500;cursor:pointer;text-decoration:none;white-space:nowrap}
+    .btn-blue{background:linear-gradient(135deg,#8577ef 0%,#4c6fff 100%);color:#fff;box-shadow:0 1px 0 rgba(255,255,255,.16) inset,0 8px 20px -8px rgba(76,111,255,.55)}
+    .btn-blue:hover:not(:disabled){background:linear-gradient(135deg,#9587ff 0%,#5c7dff 100%);box-shadow:0 1px 0 rgba(255,255,255,.2) inset,0 10px 26px -8px rgba(76,111,255,.7)}
+    .btn-blue:disabled{opacity:.45;cursor:not-allowed}
+    .btn-ghost{background:transparent;color:var(--text);border:1px solid var(--line-2)}.btn-ghost:hover{border-color:rgba(255,255,255,.35)}
+    /* Mobile wayfinding: the inline nav links disappear below 1000px (no room), so this
+       button is the only way to reach them there — without it, section links exist only
+       on desktop. Hidden on wide screens where the inline nav already does the job. */
+    .menu-toggle{display:none;width:40px;height:40px;flex:none;align-items:center;justify-content:center;border-radius:999px;border:1px solid var(--line-2);background:transparent;color:var(--text);cursor:pointer;padding:0}
+    .menu-toggle:hover{border-color:rgba(255,255,255,.35)}
+    .mobile-menu{display:none;flex-direction:column;border-top:1px solid var(--line);background:rgba(22,22,22,.98)}
+    .mobile-menu a{display:block;padding:14px 24px;font-size:15px;text-decoration:none;color:var(--text-2);border-bottom:1px solid var(--line)}
+    .mobile-menu a:last-child{border-bottom:0}.mobile-menu a:hover{color:var(--text);background:rgba(255,255,255,.03)}
+    @media(max-width:1000px){.menu-toggle{display:flex}.mobile-menu:not([hidden]){display:flex}}
+
+    /* hero: fills the first screen under the sticky top bar, animation and copy
+       centred on each other so the block reads as one balanced unit. */
+    .hero{position:relative;overflow:hidden;min-height:calc(100vh - var(--topbar-h));min-height:calc(100dvh - var(--topbar-h));display:flex;align-items:center;padding:48px 0;background:radial-gradient(1000px 560px at 10% -10%,rgba(124,58,237,.22),transparent 65%),radial-gradient(800px 500px at 85% 20%,rgba(20,71,230,.1),transparent 70%),linear-gradient(180deg,#1a1626 0%,var(--bg) 100%)}
+    .hero .wrap{width:min(1280px,calc(100% - 48px));margin:0 auto}
+    .hero-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,540px);gap:84px;align-items:center}
+    .hero-text{margin:0}
+    .hero-eyebrow{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 16px;margin-bottom:24px;border-radius:999px;background:var(--accent-dim);color:var(--accent);font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+    .hero-kpis{display:flex;gap:56px;margin-top:56px;padding-top:44px;border-top:1px solid var(--line)}
+    .hero-kpis div{display:flex;flex-direction:column;gap:8px}
+    .hero-kpis strong{font-size:44px;font-weight:500;letter-spacing:-.04em;color:var(--accent)}
+    .hero-kpis span{font-size:15px;color:var(--muted);line-height:1.4;max-width:150px}
+    /* Hero demo: a procedurally modelled T10–sacrum spine drawn with WebGL on a transparent
+       canvas (model: /static/spine-3d.bin, no external libraries). One 14 s timeline:
+       scan reveals the study → lumbar zoom and densitometer markup → the zone the model
+       flagged → verdict. The spine sways gently the whole time; markup is projected from
+       3D anchors, so it turns together with the bone. */
+    .demo{margin:0;display:grid;grid-template-columns:minmax(280px,360px) minmax(0,1fr);gap:32px;align-items:center;max-width:820px}
+    .demo-viewer{position:relative;height:min(70vh,680px);opacity:0;transition:opacity 1.1s ease}
+    .demo-viewer.ready{opacity:1}
+    .demo-gl,.demo-ov{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;
+      -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 12%,#000 84%,transparent 100%),linear-gradient(90deg,transparent 0,#000 9%,#000 91%,transparent 100%);-webkit-mask-composite:source-in;
+      mask-image:linear-gradient(180deg,transparent 0,#000 12%,#000 84%,transparent 100%),linear-gradient(90deg,transparent 0,#000 9%,#000 91%,transparent 100%);mask-composite:intersect}
+    .demo-fallback{display:none}
+    .demo-viewer.no-gl .demo-fallback{display:block;position:absolute;left:50%;top:0;height:100%;width:auto;transform:translateX(-50%);mix-blend-mode:screen;opacity:.9;-webkit-mask-image:linear-gradient(180deg,transparent,#000 12%,#000 84%,transparent);mask-image:linear-gradient(180deg,transparent,#000 12%,#000 84%,transparent)}
+    .demo-verdict{position:absolute;top:10px;left:4px;height:24px;padding:0 10px;border-radius:6px;background:var(--accent);color:var(--accent-ink);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;line-height:24px;box-shadow:0 6px 24px rgba(182,166,246,.32);opacity:0;transform:translateY(-6px);transition:opacity .5s ease,transform .5s cubic-bezier(.2,.8,.2,1)}
+    .demo-verdict.on{opacity:1;transform:none}
+    .demo-chips{position:absolute;left:0;right:0;bottom:4px;height:30px;display:flex;justify-content:center}
+    .demo-chip{position:absolute;bottom:0;max-width:100%;padding:6px 12px;border-radius:999px;background:rgba(20,18,32,.62);border:1px solid rgba(255,255,255,.12);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);color:var(--text);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transform:translateY(8px);transition:opacity .45s ease,transform .45s cubic-bezier(.2,.8,.2,1)}
+    .demo-chip.on{opacity:1;transform:none}
+    .demo-chip.c3{border-color:rgba(255,179,92,.55)}
+    .demo-steps{list-style:none;margin:0;padding:0;display:grid;gap:22px;counter-reset:step}
+    .demo-steps li{position:relative;padding-left:54px;color:var(--muted);counter-increment:step;transition:color .45s ease}
+    .demo-steps li:before{content:counter(step);position:absolute;left:0;top:1px;width:34px;height:34px;border-radius:50%;border:1px solid currentColor;display:grid;place-items:center;font-size:14px;font-weight:600;transition:border-color .45s ease,color .45s ease,box-shadow .45s ease}
+    .demo-steps li.on{color:var(--text)}
+    .demo-steps li.on:before{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 4px var(--accent-dim)}
+    .demo-steps b{display:block;font-size:18px;font-weight:500;letter-spacing:-.02em;color:inherit}
+    .demo-steps span{display:block;margin-top:4px;font-size:14.5px;line-height:1.45}
+    .hero h1{margin:0 0 18px;font-size:clamp(34px,3.6vw,48px);font-weight:500;letter-spacing:-.05em;line-height:1.08}
+    .hero .lead{margin:0 0 32px;max-width:600px;font-size:21px;line-height:1.45;color:var(--text-2);letter-spacing:-.03em}
+
+    /* upload section: the second full screen — a short pitch for the step on the left,
+       the upload panel on the right, both centred in the viewport under the top bar. */
+    .upload-section{position:relative;overflow:hidden;min-height:calc(100vh - var(--topbar-h));min-height:calc(100dvh - var(--topbar-h));display:flex;align-items:center;padding:64px 0;background:radial-gradient(900px 520px at 90% 10%,rgba(20,71,230,.14),transparent 65%),radial-gradient(700px 460px at 5% 95%,rgba(182,166,246,.07),transparent 65%),var(--bg-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+    .upload-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(400px,500px);gap:80px;align-items:center}
+    .upload-intro h2{margin:0 0 16px}
+    .upload-intro .section-sub{margin-bottom:0;font-size:clamp(19px,2.1vw,25px)}
+    .upload-points{list-style:none;margin:48px 0 0;padding:0;display:grid;gap:26px;max-width:540px}
+    .upload-points li{position:relative;padding-left:38px;font-size:16.5px;line-height:1.5;color:var(--text-2)}
+    .upload-points li b{display:block;color:var(--text);font-weight:500;font-size:17.5px;margin-bottom:4px}
+    .upload-points li:before{content:"";position:absolute;left:0;top:4px;width:18px;height:18px;border-radius:50%;background:var(--accent-dim);border:1.5px solid var(--accent)}
+
+    .panel{background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02));border:1px solid var(--line);border-radius:24px;padding:40px;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+    .panel-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:22px}
+    .panel-head h3{margin:0;font-size:22px;font-weight:500;letter-spacing:-.03em}
+    .panel-head span{font-size:13px;color:var(--muted)}
+    .drop{display:flex;flex-direction:column;align-items:center;gap:0;border:1px dashed rgba(182,166,246,.4);border-radius:16px;padding:56px 20px;text-align:center;cursor:pointer;background:var(--viewer)}
+    .drop:hover,.drop.over{border-color:var(--accent);background:#111d30}
+    .drop .icon{width:68px;height:68px;margin:0 auto 18px;border-radius:18px;background:var(--accent-dim);display:grid;place-items:center;color:var(--accent)}
+    .drop .icon svg{width:32px;height:32px}
+    .drop b{display:block;font-weight:500;font-size:19px;letter-spacing:-.02em}
+    .drop small{display:block;margin-top:8px;color:var(--muted);font-size:14px}
+    #picker{display:none}
+    .file-list{display:flex;flex-wrap:wrap;gap:6px;min-height:0;margin:20px 0 0}
+    .file-list:has(.empty){margin-top:20px}
+    .file-list .empty{font-size:14px;color:var(--muted)}
+    .file-chip{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid var(--line)}
+    #run{width:100%;height:56px;font-size:16.5px;margin-top:22px}
+    .progress{display:none;height:3px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:16px}
+    .progress i{display:block;height:100%;width:40%;background:var(--accent);animation:load 1.1s ease-in-out infinite}
+    @keyframes load{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
+    .message{min-height:0;margin-top:14px;font-size:14px;color:var(--text-2)}
+    .message.error{color:var(--red)}.message.success{color:var(--green)}
+    @media(max-width:1000px){.upload-grid{grid-template-columns:1fr}.upload-points{max-width:none}}
+
+    /* sections: each major section fills exactly one screen under the sticky top bar
+       and centres its content vertically, so scrolling reads as page-to-page, not a
+       long trickle of whitespace. */
+    section.block{padding:88px 0}
+    section.block.full{min-height:calc(100vh - var(--topbar-h));min-height:calc(100dvh - var(--topbar-h));display:flex;align-items:center;padding:40px 0}
+    section.block.full>.wrap{width:min(1280px,calc(100% - 48px));margin:0 auto}
+    .section-title{margin:0 0 12px;font-size:clamp(38px,4.6vw,58px);font-weight:500;letter-spacing:-.06em;line-height:1.04}
+    .section-sub{margin:0 0 28px;max-width:760px;font-size:clamp(19px,2.1vw,25px);line-height:1.3;letter-spacing:-.04em;color:var(--text-2)}
+    .center{text-align:center}.center .section-sub,.section-sub.center{margin-left:auto;margin-right:auto}
+
+    /* results */
+    .results{display:none;padding:20px 0 24px!important;scroll-margin-top:64px}.results.visible{display:block}
+    .btn-sm{height:28px;padding:0 10px;font-size:11px;font-weight:500}
+
+    /* Slider: a worklist sidebar and one slide sized to the window under the top bar.
+       The slide never scrolls as a whole: the image takes the free height, the
+       specialist's decision is pinned to the bottom of the side panel, and only the
+       finding details between them scroll if a small screen cannot hold them. */
+    .stage-wrap{--stage-h:clamp(420px,calc(100vh - 108px),980px);display:grid;grid-template-columns:272px minmax(0,1fr);gap:18px;align-items:start}
+    .worklist{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;height:var(--stage-h)}
+    .wl-head{padding:16px 20px;border-bottom:1px solid var(--line);flex:none}
+    .wl-head h3{margin:0 0 10px;font-size:15px;font-weight:500;letter-spacing:-.02em}
+    .wl-head h3 small{display:block;margin-top:3px;font-weight:400;color:var(--muted);font-size:11px}
+    .wl-actions{display:flex;gap:6px}
+    .wl-actions .btn{flex:1;min-width:0;padding:0 6px}
+    .wl-rows{overflow-y:auto;flex:1;min-height:0}
+    .wl-row{display:grid;grid-template-columns:20px minmax(0,1fr) 38px 14px;gap:8px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;cursor:pointer}
+    .wl-row:last-child{border-bottom:0}.wl-row:hover{background:rgba(255,255,255,.03)}
+    .wl-row.active{background:rgba(42,92,255,.16);box-shadow:inset 3px 0 0 var(--blue-2)}
+    .wl-row .wl-check{width:18px;height:18px;accent-color:var(--blue-2)}
+    .wl-main{display:flex;gap:8px;min-width:0}
+    .wl-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex:none;background:rgba(255,255,255,.22)}
+    .wl-dot.issue{background:var(--red-pale)}
+    .wl-dot.doubt{background:transparent;border:1.5px dashed var(--accent)}
+    .wl-dot.ok{background:var(--green)}
+    .wl-dot.fail{background:var(--red)}
+    .wl-text{min-width:0}
+    .wl-text .file{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .wl-text .region{display:block;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+    .wl-row .risk{text-align:right;font-variant-numeric:tabular-nums;color:var(--text-2);font-size:12px}
+    .wl-row .rv-mark{color:var(--green);text-align:center;font-size:13px}
+
+    .slide{display:flex;flex-direction:column;height:var(--stage-h);min-height:0}
+    .slide-nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:10px;flex:none}
+    .nav-group{grid-column:2;display:flex;align-items:center;gap:14px}
+    .slide-nav #reset{grid-column:3;justify-self:end;height:32px;padding:0 14px;font-size:13px}
+    .slide-nav #full-toggle{grid-column:1;grid-row:1;justify-self:start;height:32px;padding:0 14px;font-size:13px}
+    /* Full screen: the slide alone fills the window and the image takes the extra height.
+       The class also works where the browser has no Fullscreen API (iPhone Safari). */
+    .slide.is-full{position:fixed;inset:0;z-index:100;height:100vh;height:100dvh;padding:16px 20px;background:var(--bg);overflow-y:auto}
+    .nav-btn{width:38px;height:38px;border-radius:50%;border:1px solid var(--line-2);background:var(--surface);color:var(--text);font-size:16px;line-height:1;cursor:pointer}
+    .nav-btn:hover:not(:disabled){border-color:rgba(255,255,255,.35)}
+    .nav-btn:disabled{opacity:.35;cursor:not-allowed}
+    #slide-counter{min-width:64px;text-align:center;font-size:13px;color:var(--text-2);font-variant-numeric:tabular-nums}
+    .slide-body{flex:1;min-height:0;display:flex;flex-direction:column}
+
+    .verdict{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;width:max-content}
+    .verdict.issue{background:var(--red-pale);color:var(--red-ink)}
+    .verdict.doubt{border:1.5px dashed var(--accent);color:var(--accent)}
+    .verdict.ok{background:var(--green);color:var(--green-ink)}
+    .verdict.fail{background:rgba(255,122,112,.16);color:var(--red)}
+
+    /* A slide is one card that fills the slide body: a compact header, then the
+       image column and the side panel share the remaining height. */
+    .result-card{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 20px 16px;container-type:inline-size}
+    /* Header says each thing once: the badge is the verdict, the title names what was found. */
+    .card-head{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex:none;min-width:0}
+    .card-head .verdict{flex:none}
+    .card-title{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1 1 auto}
+    .card-head h3{margin:0;font-size:19px;font-weight:500;letter-spacing:-.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}
+    .card-head .file-name{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:60px;flex:0 1000 auto}
+    .card-head .case-zip{flex:none}
+    .card-grid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(250px,34%) minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:20px}
+    .card-left,.card-side{display:flex;flex-direction:column;min-height:0;min-width:0}
+
+    .viewer{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--viewer);border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.05)}
+    .viewer-bar{height:5px;flex:none;background:transparent}
+    .viewer-bar.issue{background:var(--red-pale)}
+    .viewer-bar.doubt{background:repeating-linear-gradient(90deg,var(--accent) 0 14px,transparent 14px 22px)}
+    .viewer-bar.ok{background:var(--green)}
+    /* One frame for all three views: the plain image, the AI overlay and the markup
+       canvas fill the same box and are letterboxed the same way, so switching never
+       moves the image. The box takes whatever height the slide leaves. */
+    .viewer-stage{position:relative;flex:1;min-height:0}
+    .viewer-stage>img,.viewer-stage>canvas{position:absolute;top:10px;left:10px;width:calc(100% - 20px);height:calc(100% - 20px);object-fit:contain;display:block}
+    .pv-markup{touch-action:none;cursor:crosshair}
+    .preview-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:13px}
+    .pv-reset{position:absolute;top:12px;right:12px;height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--line-2);background:rgba(14,23,38,.85);color:var(--text-2);font:inherit;font-size:12px;cursor:pointer}
+    .pv-reset:hover{color:var(--text);border-color:rgba(255,255,255,.35)}
+    .pv-hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);padding:5px 12px;border-radius:999px;background:rgba(14,23,38,.85);border:1px solid var(--line);font-size:12px;color:var(--text-2);white-space:nowrap;pointer-events:none}
+    .segmented{flex:none;display:flex;justify-content:center;margin-top:10px}
+    .segmented div{display:inline-flex;padding:3px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid var(--line)}
+    .seg{white-space:nowrap;height:36px;padding:0 14px;border:0;border-radius:999px;background:transparent;color:var(--text-2);font:inherit;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;cursor:pointer}
+    .seg.active{background:var(--blue);color:#fff}
+
+    .card-info{flex:1;min-height:0;overflow-y:auto;padding-right:6px;scrollbar-width:thin}
+    /* Fades the last lines while more details sit below, so the cut is visible. */
+    .card-info.more{-webkit-mask-image:linear-gradient(#000 calc(100% - 28px),transparent);mask-image:linear-gradient(#000 calc(100% - 28px),transparent)}
+    .facts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 24px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+    .facts span{display:block;font-size:12px;color:var(--muted);margin-bottom:2px}
+    .facts p{margin:0;font-size:14px;line-height:1.4}
+    .facts .risk-big{font-size:22px;font-weight:500;letter-spacing:-.03em;color:var(--text)}
+    .details{padding:10px 0;border-bottom:1px solid var(--line);font-size:13px;line-height:1.45}
+    .details:last-child{border-bottom:0}
+    .details h4{margin:0 0 6px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+    .details p{margin:0;color:var(--text-2)}
+    .details ul{margin:0;padding-left:16px;color:var(--text-2)}
+    .details li{margin:3px 0}.details li b{color:var(--text);font-weight:500}
+    .details small{color:var(--muted)}
+    .measures{display:flex;flex-wrap:wrap;gap:6px}
+    .measures span{font-size:12px;padding:3px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid var(--line)}
+    .checks{list-style:none;padding:0!important;margin:4px 0 0!important}
+    .checks li{margin:2px 0!important}.checks li b{display:inline-block;width:16px}
+    .checks li.ok b{color:var(--green)}.checks li.bad b{color:var(--red)}
+    .checks .note-line{color:var(--muted);font-size:12px}
+    .result-subtitle{margin:0;color:var(--text-2);font-size:13px}
+
+    /* The decision stays at the bottom of the side panel whatever the details hold. */
+    /* The decision is a strip under the image and the details, centred, across the whole card. */
+    .review{flex:none;margin-top:12px;padding:10px 16px 12px;border:1px solid var(--line-2);border-radius:14px;background:var(--bg-2);text-align:center}
+    .review-head{display:flex;justify-content:center;align-items:baseline;gap:12px;margin-bottom:8px;min-width:0}
+    .review h4{margin:0;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap;flex:none}
+    .review-note{font-size:12px;line-height:1.4;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+    select,.review input{min-width:0;background:var(--bg);color:var(--text);border:1px solid var(--line-2);border-radius:10px;padding:0 10px;height:34px;font:inherit;font-size:13px}
+    .review-row{display:grid;grid-template-columns:minmax(140px,1fr) minmax(140px,1.3fr) auto auto;gap:8px;max-width:1100px;margin:0 auto;text-align:left}
+    .review-row.with-markup{grid-template-columns:minmax(140px,1fr) minmax(140px,1.3fr) minmax(150px,auto) auto auto}
+    .review-row select,.review-row .btn{height:36px}
+    .review-row .btn{padding:0 18px}
+    /* A narrower card keeps the strip to two rows: the fields, then the two buttons; a phone stacks it. */
+    @container (max-width:760px){.review-row{grid-template-columns:1fr 1fr}.review-row.with-markup{grid-template-columns:repeat(6,minmax(0,1fr))}.review-row.with-markup>input,.review-row.with-markup>select{grid-column:span 2}.review-row.with-markup>.btn{grid-column:span 3}}
+    @container (max-width:480px){.review-head{flex-wrap:wrap}.review-note{white-space:normal}.review-row,.review-row.with-markup{grid-template-columns:minmax(0,1fr)}.review-row.with-markup>input,.review-row.with-markup>select,.review-row.with-markup>.btn{grid-column:auto}}
+    .review-done{margin-top:8px;text-align:left;display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--green)}
+    .review-done.rejected{color:var(--red-pale)}
+    .review-done .rd-status{font-size:13px;font-weight:600}
+    .review-done .rd-meta{font-size:12.5px;color:var(--text-2)}
+    .review-done .rd-comment{font-size:12.5px;color:var(--muted);font-style:italic}
+
+    /* how it works */
+    .features{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+    .feature{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:22px 26px;min-height:165px;display:flex;flex-direction:row;justify-content:space-between;align-items:flex-start;gap:18px}
+    .feature-body{display:flex;flex-direction:column;text-align:left;min-width:0}
+    .feature .ic{width:64px;height:64px;border-radius:17px;background:var(--accent-dim);color:var(--accent);display:grid;place-items:center;flex:none}
+    .feature .ic svg{width:32px;height:32px}
+    .feature h3{margin:0 0 7px;font-size:18px;font-weight:500;letter-spacing:-.03em}
+    .feature p{margin:0;color:var(--text-2);font-size:14px;line-height:1.48}
+    .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+    .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:52px 36px;border-top:2px solid var(--accent)}
+    .kpi span{display:block;color:var(--text-2);font-size:17px}
+    .kpi strong{display:block;margin:20px 0 12px;font-size:clamp(60px,7.5vw,92px);font-weight:500;letter-spacing:-.06em;line-height:1;color:var(--accent)}
+    .kpi small{color:var(--text-2);font-size:15px}
+    /* light integration band */
+    .light{background:radial-gradient(800px 420px at 15% 0%,rgba(20,71,230,.12),transparent 65%),radial-gradient(700px 400px at 90% 100%,rgba(182,166,246,.09),transparent 65%),var(--bg-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+    .integrations{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:56px}
+    .int{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:44px 40px;min-height:310px;display:flex;flex-direction:column;align-items:center;text-align:center}
+    .int .ic{width:76px;height:76px;border-radius:20px;display:grid;place-items:center}
+    .int .ic svg{width:38px;height:38px}
+    .int .ic.violet{background:var(--accent-dim);color:var(--accent)}
+    .int .ic.blue{background:rgba(20,71,230,.16);color:var(--blue-2)}
+    .int .ic.green{background:rgba(127,224,180,.16);color:var(--green)}
+    .int h3{margin:28px 0 12px;font-size:22px;font-weight:500;letter-spacing:-.03em}
+    .int p{margin:0;color:var(--text-2);font-size:15.5px;line-height:1.6}
+    code{font-size:13px;background:rgba(255,255,255,.08);padding:2px 7px;border-radius:6px}
+
+    footer{padding:32px 0 40px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+    footer .wrap{display:flex;flex-direction:column;gap:8px}
+    .footer-bottom{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap}
+    .footer-meta{font-size:12px;color:rgba(230,230,230,.42)}
+    .footer-meta a{color:rgba(230,230,230,.6);text-decoration:underline;text-underline-offset:2px}
+    .footer-meta a:hover{color:var(--text-2)}
+    .footer-devs{text-align:right}
+
+    /* Narrow screens: the queue goes above the slide and the slide flows as a page. */
+    /* On a narrow screen the demo animation is scenery, not the message: the headline,
+       lead and CTA move to the top of the stack so the value proposition is the first
+       thing read, and the spine demo follows as supporting visual. */
+    @media(max-width:1000px){.hero-top{grid-template-columns:1fr}.hero-top .hero-text{order:-1}.hero-top .demo{margin-top:8px}.links{display:none}.stage-wrap{grid-template-columns:minmax(0,1fr)}.worklist{height:auto;max-height:260px}.slide,.slide-body,.result-card{height:auto;display:block}.card-head{flex-wrap:wrap}.card-grid{display:block}.card-left{margin-bottom:16px}.viewer{display:block}.viewer-stage{height:min(62vh,520px)}.card-info{overflow:visible;padding-right:0}}
+    @media(max-width:720px){.demo{grid-template-columns:minmax(0,1fr)}.demo-viewer{height:380px}.demo-steps{grid-template-columns:1fr 1fr;gap:12px}.demo-steps span{display:none}.wrap{width:calc(100% - 32px)}.kpis,.integrations,.features{grid-template-columns:1fr 1fr}.integrations{grid-template-columns:1fr}.facts,.review-row,.review-row.with-markup{grid-template-columns:minmax(0,1fr)}.slide-nav #full-toggle{padding:0 10px}.slide-nav #full-toggle span{display:none}.card-head h3{white-space:normal}.card-title{flex:1 1 100%;flex-direction:column;gap:2px}.card-head .file-name{white-space:normal}.segmented{flex-wrap:wrap}.status{display:none}.hero,.upload-section,section.block.full{min-height:0}.hero{padding:64px 0 48px}.upload-section{padding:56px 0}section.block{padding:64px 0}.hero-kpis{flex-wrap:wrap;gap:20px 28px}}
+    @media(max-width:460px){.kpis,.features{grid-template-columns:1fr}.top-actions .btn{display:none}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="#top" aria-label="Эвектио — на главную"><span class="logo-mark" role="img" aria-label=""></span><span class="logo-word">Эвектио</span></a>
+      <nav class="links" aria-label="Разделы"><a href="#upload">Анализ</a><a href="#how">Как работает</a><a href="#metrics">Метрики</a><a href="#integrations">Интеграция</a></nav>
+      <div class="top-actions"><a class="btn btn-blue" href="#upload">Загрузить исследование</a><button class="menu-toggle" id="menuToggle" type="button" aria-expanded="false" aria-controls="mobileMenu" aria-label="Открыть меню разделов"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2 5h14M2 9h14M2 13h14"/></svg></button></div>
+    </div>
+    <nav class="mobile-menu" id="mobileMenu" aria-label="Разделы" hidden><a href="#upload">Анализ</a><a href="#how">Как работает</a><a href="#metrics">Метрики</a><a href="#integrations">Интеграция</a></nav>
+  </header>
+
+  <main id="top">
+    <section class="hero snap">
+      <div class="wrap">
+        <div class="hero-top">
+          <figure class="demo" aria-label="Как работает анализ на тестовом снимке поясничного отдела: снимок, разметка, зона проблемы, вердикт">
+            <div class="demo-viewer">
+              <canvas class="demo-gl" aria-hidden="true"></canvas>
+              <canvas class="demo-ov" aria-hidden="true"></canvas>
+              <img class="demo-fallback" src="/static/demo-spine.png" alt="" width="343" height="634">
+              <span class="demo-verdict">Нарушение</span>
+              <div class="demo-chips">
+                <span class="demo-chip c1">CR000000_ПОП.dcm · поясничный отдел</span>
+                <span class="demo-chip c2">L1–L4 · ось −0,6° · гребни в поле</span>
+                <span class="demo-chip c3">Посторонний предмет · риск 68%</span>
+                <span class="demo-chip c4">Отчёт готов · ждёт специалиста</span>
+              </div>
+            </div>
+            <ol class="demo-steps">
+              <li class="s1"><b>Снимок DICOM</b><span>чтение и калибровка пикселя 1,05&nbsp;×&nbsp;0,60&nbsp;мм</span></li>
+              <li class="s2"><b>Разметка</b><span>контур кости, L1–L4, ось и гребни — как на денситометре</span></li>
+              <li class="s3"><b>Зона проблемы</b><span>карта окклюзии показывает, что повлияло на вывод</span></li>
+              <li class="s4"><b>Вердикт</b><span>тип нарушения и риск — специалисту на подтверждение</span></li>
+            </ol>
+          </figure>
+          <div class="hero-text">
+            <h1>ИИ-контроль качества DXA-исследований</h1>
+            <p class="lead">Проверяет каждый снимок ещё до того, как его увидит врач: укладку, ось, посторонние предметы в кадре — и показывает, где именно ошибка, прямо на снимке, а не в отдельном протоколе. Финальное слово всегда остаётся за специалистом.</p>
+            <a class="btn btn-blue" href="#how">Как это работает</a>
+            <div class="hero-kpis">
+              <div><strong>5</strong><span>типов нарушений укладки под автоматическим контролем</span></div>
+              <div><strong>2</strong><span>области исследования: позвоночник и бедро</span></div>
+              <div><strong>PACS</strong><span>разметка и вывод сразу в отчёте и во вьюере</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="upload-section snap" id="upload" aria-labelledby="upload-title">
+      <div class="wrap upload-grid">
+        <div class="upload-intro">
+          <h2 class="section-title">Загрузите и получите готовый вывод за секунды</h2>
+          <p class="section-sub">Просто перетащите DICOM-файлы или ZIP-архив с исследованием — сервис сам прочитает снимки, определит область и покажет результат.</p>
+          <ul class="upload-points">
+            <li><b>Понимает снимок сам, без вашей разметки</b>Позвоночник или бедро определяется автоматически по изображению без дополнительных настроек.</li>
+            <li><b>Принимает файлы как есть</b>DICOM, ZIP-архив, папка с исследованием — кадры одной серии сервис соберёт и объединит сам.</li>
+            <li><b>Ничего не нужно ждать</b>Отчёт, разметка и визуализация будут готовы сразу после загрузки.</li>
+          </ul>
+        </div>
+
+        <section class="panel" aria-labelledby="upload-title">
+          <div class="panel-head"><h3 id="upload-title">Новое исследование</h3></div>
+          <label class="drop" id="drop" for="picker" tabindex="0"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8 8l4-4 4 4"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/></svg></div><b>Выберите или перетащите файлы</b><small>DICOM (.dcm) или ZIP с каталогами исследований</small></label>
+          <input id="picker" type="file" accept=".dcm,.dicom,.zip,application/dicom,application/zip,application/octet-stream" multiple>
+          <div class="file-list" id="files"><span class="empty"></span></div>
+          <button class="btn btn-blue" id="run" disabled>Анализировать</button>
+          <div class="progress" id="progress"><i></i></div>
+          <div class="message" id="message" role="status"></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="block results snap" id="results" aria-live="polite">
+      <div class="wrap">
+        <div class="stage-wrap">
+          <aside class="worklist" id="worklist"></aside>
+          <div class="slide">
+            <div class="slide-body" id="result-list"></div>
+            <div class="slide-nav">
+              <button class="btn btn-ghost" id="full-toggle" type="button" aria-pressed="false" title="Развернуть слайд на весь экран (клавиша F, выход — Esc)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M1 5V1h4M9 1h4v4M13 9v4H9M5 13H1V9"/></svg><span>Во весь экран</span></button>
+              <div class="nav-group" id="slide-nav" hidden>
+                <button class="nav-btn" id="prev-slide" type="button" aria-label="Предыдущий снимок" title="Предыдущий снимок (←)">‹</button>
+                <span id="slide-counter"></span>
+                <button class="nav-btn" id="next-slide" type="button" aria-label="Следующий снимок" title="Следующий снимок (→)">›</button>
+              </div>
+              <button class="btn btn-ghost" id="reset" type="button">Новый анализ</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block full snap" id="how">
+      <div class="wrap">
+        <h2 class="section-title">Проверка качества снимков до того, как его увидит врач</h2>
+        <p class="section-sub">Сервис сам находит область исследования, проверяет каждый критерий качества по отдельности и точно показывает, что не так и почему.</p>
+        <div class="features">
+          <article class="feature"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="1.8" width="6" height="3.4" rx="1.3"/><rect x="9" y="6.4" width="6" height="3.4" rx="1.3"/><rect x="9" y="11" width="6" height="3.4" rx="1.3"/><circle cx="12" cy="19.3" r="3.1"/></svg></div><div class="feature-body"><h3>Поясничный отдел позвоночника и проксимальный отдел бедренной кости</h3><p>Сервис сам понимает, что перед ним — позвоночник или бедро, прямо по снимку. Никаких суффиксов и ручной сортировки файлов: все кадры одного исследования объединяются и анализируются как единое целое.</p></div></article>
+          <article class="feature"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M4 20 16 5.5"/><path d="M8.3 20a7.6 7.6 0 0 1 3-6.2"/></svg></div><div class="feature-body"><h3>Контроль укладки в миллиметрах и градусах</h3><p>Проверяет геометрию укладки так же строго, как это делал бы опытный рентгенлаборант: наклон оси, отступы от области интереса — с точностью до миллиметра, потому что сервис учитывает реальный размер пикселя конкретного аппарата.</p></div></article>
+          <article class="feature"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3.2"/><circle cx="3" cy="3" r="1.7" fill="currentColor" stroke="none"/><circle cx="21" cy="3" r="1.7" fill="currentColor" stroke="none"/><circle cx="3" cy="21" r="1.7" fill="currentColor" stroke="none"/><circle cx="21" cy="21" r="1.7" fill="currentColor" stroke="none"/></svg></div><div class="feature-body"><h3>Разметка как на денситометре</h3><p>Автоматически размечает L1–L4, контуры костей, шейку бедра и область Варда — так же, как это делает сам денситометр. Специалисту достаточно поправить точку одним движением и подтвердить результат одним кликом.</p></div></article>
+          <article class="feature"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h8.5L19 7v14.5H6z"/><path d="M14.5 2.5V7H19"/><path d="M9 12.7l2 2 4-4.7"/></svg></div><div class="feature-body"><h3>Отчёт и результаты в DICOM</h3><p>Готовый отчёт выдается сразу в привычных форматах: CSV, XLSX и DICOM SR, с визуализацией и разметкой поверх исходного снимка. Один снимок или весь архив целиком — выбор за специалистом.</p></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="block full snap" id="metrics">
+      <div class="wrap">
+        <h2 class="section-title center">Не просто контроль качества</h2>
+        <p class="section-sub center">Каждый показатель связан с конкретным критерием и областью изображения. Специалист видит не только оценку модели, но и что именно повлияло на её решение.</p>
+        <div style="height:48px"></div>
+        <div class="kpis">
+          <div class="kpi"><span>Средний ROC-AUC</span><strong>0,77</strong><small>по пяти типам нарушений</small></div>
+          <div class="kpi"><span>ROC-AUC области интереса</span><strong>0,93</strong><small>проксимальный отдел бедра</small></div>
+          <div class="kpi"><span>Время на снимок</span><strong>0,2 с</strong><small>в 95% случаев — на обычном CPU, без GPU</small></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block full light snap" id="integrations">
+      <div class="wrap">
+        <h2 class="section-title center">Встраивается в работу отделения</h2>
+        <p class="section-sub center">Результат встраивается в привычный рабочий процесс: отображается в отчёте, доступен в PACS рядом с исследованием и учитывается при формировании очереди просмотра.</p>
+        <div class="integrations">
+          <article class="int"><div class="ic violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="4" rx="1.6"/><rect x="2.5" y="10" width="14" height="4" rx="1.6" opacity=".6"/><rect x="2.5" y="15.5" width="8.5" height="4" rx="1.6" opacity=".35"/></svg></div><h3>Очередь по приоритету</h3><p>Специалист сразу видит главное: нарушения — в начале списка, спорные случаи — следом. Подтвердить или отклонить вывод — одно нажатие.</p></article>
+          <article class="int"><div class="ic blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="13" height="13" rx="2.6"/><rect x="8.5" y="8.5" width="13" height="13" rx="2.6"/></svg></div><h3>Разметка поверх снимка в PACS</h3><p>Разметка ложится прямо на исходный снимок в привычном PACS-вьюере — включается и выключается одним кликом, не затрагивая оригинальное изображение.</p></article>
+          <article class="int"><div class="ic green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3.5" width="15" height="18" rx="2.6"/><path d="M9 3.5V2.8a1.3 1.3 0 0 1 1.3-1.3h3.4a1.3 1.3 0 0 1 1.3 1.3v.7"/><path d="M8.2 13.2l2.5 2.5 5-5.7"/></svg></div><h3>Подтверждение специалистом</h3><p>Одно нажатие — и решение врача официально закрывает исследование: вывод сохраняется в стандартном формате и остаётся в архиве рядом со снимком, готовый к проверке в любой момент.</p></article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="snap"><div class="wrap"><span>Исследовательский прототип поддержки специалиста. Не является медицинским изделием и не заменяет клиническое заключение.</span><div class="footer-bottom"><span class="footer-meta">Проект разработан в рамках Хакатона 2026 ЛТЦ и не предназначен для коммерческого использования.</span><span class="footer-meta footer-devs">Разработчики: <a href="https://github.com/archebaldo777" target="_blank" rel="noopener noreferrer">archebaldo777</a> · <a href="https://github.com/RealZel" target="_blank" rel="noopener noreferrer">RealZel</a></span></div></div></footer>
+  <script>
+    const $=s=>document.querySelector(s),picker=$('#picker'),drop=$('#drop'),run=$('#run'),filesBox=$('#files'),message=$('#message'),progress=$('#progress'),results=$('#results'),list=$('#result-list');
+    // ---- mobile nav: the section links have no room under 1000px, so this menu is
+    // their only path there. Closes on a link tap, an outside click or Escape.
+    (()=>{const btn=$('#menuToggle'),menu=$('#mobileMenu');if(!btn||!menu)return;
+      const setOpen=on=>{menu.hidden=!on;btn.setAttribute('aria-expanded',String(on))};
+      btn.addEventListener('click',()=>setOpen(menu.hidden));
+      menu.addEventListener('click',e=>{if(e.target.closest('a'))setOpen(false)});
+      document.addEventListener('click',e=>{if(!menu.hidden&&!menu.contains(e.target)&&!btn.contains(e.target))setOpen(false)});
+      document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!menu.hidden)setOpen(false)});
+    })();
+    let selected=[];
+    const esc=value=>String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+    const basename=value=>String(value||'').split(/[\\/]/).pop().replace(/^\d{5}_/,'');
+    const shortRegion=r=>{const a=r.anatomical_region||'';if(!a||a==='unknown')return '—';const side=/правый/.test(a)?' (правое)':/левый/.test(a)?' (левое)':'';return /позвоночник/i.test(a)?'Позвоночник':/бедр/i.test(a)?'Бедро'+side:a};
+    const regions={lumbar_spine:'Поясничный отдел позвоночника',right_proximal_femur:'Проксимальный отдел бедра',left_proximal_femur:'Проксимальный отдел бедра'};
+    function showFiles(files){selected=[...files];filesBox.innerHTML=selected.length?selected.map(f=>`<span class="file-chip" title="${esc(f.name)}">${esc(f.name)}</span>`).join(''):'<span class="empty"></span>';run.disabled=!selected.length;message.textContent='';}
+    picker.addEventListener('change',e=>showFiles(e.target.files));drop.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();picker.click()}});
+    ['dragenter','dragover'].forEach(n=>drop.addEventListener(n,e=>{e.preventDefault();drop.classList.add('over')}));['dragleave','drop'].forEach(n=>drop.addEventListener(n,e=>{e.preventDefault();drop.classList.remove('over')}));drop.addEventListener('drop',e=>showFiles(e.dataTransfer.files));
+    // Triage like a second reader: issue (solid), doubt (dashed), no issue.
+    function verdictOf(r){if(r.processing_status!=='Success')return ['fail','Ошибка'];if(r.quality_class===1)return ['issue','Нарушение'];if(r.review_priority==='medium')return ['doubt','Сомнение'];return ['ok','Норма']}
+    const rank=r=>({fail:3,issue:0,doubt:1,ok:2})[verdictOf(r)[0]];
+    // The worklist orders the queue (violations first, then doubtful cases); the slide
+    // steps through that same order, so "next" after a save means the next row down.
+    function renderWorklist(rs){const order=rs.map((r,i)=>i).sort((a,b)=>rank(rs[a])-rank(rs[b])||(rs[b].quality_prob||0)-(rs[a].quality_prob||0));
+      const rows=order.map(i=>{const r=rs[i],[cls,txt]=verdictOf(r);return `<div class="wl-row" data-i="${i}" tabindex="0" role="button" aria-label="${esc(basename(r.path_to_study))}"><input type="checkbox" class="wl-check" data-i="${i}" aria-label="Отметить для скачивания"><span class="wl-main"><span class="wl-dot ${cls}" title="${esc(txt)}"></span><span class="wl-text"><span class="file" title="${esc(r.path_to_study)}">${esc(basename(r.path_to_study))}</span><span class="region">${esc(shortRegion(r))}</span></span></span><span class="risk">${r.quality_prob!=null?Math.round(r.quality_prob*100)+'%':'—'}</span><span class="rv-mark" id="rv-${i}">${r.review&&r.review.decision?'✓':''}</span></div>`}).join('');
+      $('#worklist').innerHTML=`<div class="wl-head"><h3>Очередь просмотра<small>сначала нарушения, затем сомнения</small></h3><div class="wl-actions"><a class="btn btn-ghost btn-sm" id="dl-all" href="/v1/jobs/${jobId}/download">Все ZIP</a><button class="btn btn-ghost btn-sm" id="dl-selected" type="button" disabled>Отмеченные ZIP</button></div></div><div class="wl-rows">${rows}</div>`;
+      return order}
+    function highlightWorklist(idx){document.querySelectorAll('.wl-row').forEach(el=>el.classList.toggle('active',Number(el.dataset.i)===idx))}
+    function updateSlideNav(){const nav=$('#slide-nav');if(queueOrder.length<=1){nav.hidden=true;return}nav.hidden=false;$('#slide-counter').textContent=`${slidePos+1} / ${queueOrder.length}`;$('#prev-slide').disabled=slidePos===0;$('#next-slide').disabled=slidePos===queueOrder.length-1}
+    function showSlide(pos){if(!queueOrder.length)return;slidePos=Math.max(0,Math.min(queueOrder.length-1,pos));const idx=queueOrder[slidePos];list.innerHTML=renderResult(lastResults[idx],idx);highlightWorklist(idx);updateSlideNav();watchOverflow()}
+    function watchOverflow(){const ci=list.querySelector('.card-info');if(!ci)return;const upd=()=>ci.classList.toggle('more',ci.scrollTop+ci.clientHeight<ci.scrollHeight-4);upd();ci.addEventListener('scroll',upd,{passive:true})}
+    const recheckOverflow=()=>list.querySelector('.card-info')?.dispatchEvent(new Event('scroll'));
+    window.addEventListener('resize',recheckOverflow);
+    function selectedIndices(){return [...document.querySelectorAll('.wl-check:checked')].map(c=>Number(c.dataset.i))}
+    function updateDownloadSelectedState(){const btn=$('#dl-selected');if(btn)btn.disabled=!selectedIndices().length}
+    function markReviewed(idx){const mark=$(`#rv-${idx}`);if(mark)mark.textContent='✓';document.querySelector(`.wl-row[data-i="${idx}"]`)?.classList.add('reviewed')}
+    function renderResult(r,index){
+      const [vcls,vtxt]=verdictOf(r);
+      const region=regions[r.anatomical_region]||r.anatomical_region||'';
+      const proj=r.projection?(r.projection_source==='protocol'?r.projection+' — по протоколу':r.projection):'';
+      const fileLine=`<span class="file-name" title="${esc(r.path_to_study)}">${esc(basename(r.path_to_study))}${region?' · '+esc(region):''}${proj?' · '+esc(proj):''}</span>`;
+      if(r.processing_status!=='Success')return `<article class="result-card" id="card-${index}"><div class="card-head"><span class="verdict fail">${vtxt}</span><div class="card-title"><h3>Файл не обработан</h3>${fileLine}</div></div><div class="details"><p>${esc(r.error||'Неизвестная ошибка')}</p></div></article>`;
+      // The badge carries the verdict, so the title names the finding instead of repeating it.
+      const vs=r.violations||[];
+      const heading=vs.length?vs.map(v=>v.title).join(' · '):vcls==='doubt'?'Нарушений не найдено, риск близок к порогу':'Нарушений не найдено';
+      const hasMarkup=!!(r.markup&&r.markup.shapes&&r.markup.shapes.length);
+      const segs=[['source','Снимок'],['explain','С ИИ']].concat(hasMarkup?[['markup','Разметка']]:[]);
+      const viewer=`<div class="viewer" id="pv-${index}"><div class="viewer-bar ${vcls}"></div><div class="viewer-stage"><img class="pv-source" data-src="/v1/jobs/${jobId}/image/${index}" alt="Исходный снимок ${index+1}" hidden>${r.preview_url?`<img class="pv-explain" src="${esc(r.overlay_url||r.preview_url)}" alt="Результат ИИ для снимка ${index+1}" loading="lazy">`:'<span class="preview-empty pv-explain">Нет визуализации</span>'}${hasMarkup?`<canvas class="pv-markup" id="cv-${index}" hidden></canvas><div class="pv-hint" id="hint-${index}" hidden>Перетащите точки, чтобы исправить разметку</div><button class="pv-reset" type="button" id="reset-${index}" data-reset="${index}" title="Отменить перемещение точек и вернуть автоматическую разметку" hidden>вернуть авторазметку</button>`:''}</div></div><div class="segmented"><div role="tablist">${segs.map(([k,t])=>`<button class="seg${k==='explain'?' active':''}" data-tab="${k}" data-i="${index}">${t}</button>`).join('')}</div></div>`;
+      const indication=`<b class="risk-big">${Math.round((r.quality_prob||0)*100)}%</b> при пороге ${Math.round((r.decision_threshold??0.5)*100)}%`;
+      const explanation=vs.length?vs.map(v=>esc(v.description)).join(' '):'Признаки нарушений качества не превысили порог модели.';
+      const measures=measuresBlock(r);
+      return `<article class="result-card" id="card-${index}"><div class="card-head"><span class="verdict ${vcls}">${vtxt}</span><div class="card-title"><h3 title="${esc(heading)}">${esc(heading)}</h3>${fileLine}</div><a class="btn btn-ghost btn-sm case-zip" href="/v1/jobs/${jobId}/case/${index}/zip">Скачать ZIP</a></div><div class="card-grid"><div class="card-left">${viewer}</div><div class="card-side"><div class="card-info"><div class="facts"><div><span>Риск нарушения</span><p>${indication}</p></div><div><span>Пояснение</span><p>${explanation}</p></div></div>${measures?`<div class="details"><h4>Измерения</h4>${measures}</div>`:''}${markupBlock(r,index)}${recommendationsBlock(r)}</div></div></div>${reviewBlock(r,index)}</article>`;
+    }
+    let jobId=null,lastResults=[],queueOrder=[],slidePos=0;const editors={};
+    const measureLabels={axis_angle_deg:v=>`ось ${Number(v)>0?'+':''}${Number(v).toFixed(1)}° (допуск ±5°)`,field_height_mm:v=>`поле ${Math.round(v)} мм по Y`,field_width_mm:v=>`${Math.round(v)} мм по X`,curve_deviation_mm:v=>`дуга оси ${Math.round(v)} мм${v>=6?' — вероятен сколиоз':''}`};
+    function measuresBlock(r){const m=r.measurements||{};const items=Object.keys(measureLabels).filter(k=>m[k]!==undefined&&m[k]!==null).map(k=>`<span>${esc(measureLabels[k](m[k]))}</span>`);return items.length?`<div class="measures">${items.join('')}</div>`:''}
+    // The criterion is already the card title when it is the only finding, so only the action is shown then.
+    function recommendationsBlock(r){const items=r.recommendations||[];if(!items.length)return '';const titles=new Set((r.violations||[]).map(v=>v.title)),solo=items.length===1&&titles.has(items[0].criterion);return `<div class="details"><h4>Рекомендации по укладке</h4><ul>${items.map(c=>`<li>${solo?'':`<b>${esc(c.criterion)}</b> — `}${esc(c.action)}${c.measured?`<br><small>${esc(c.measured)}</small>`:''}</li>`).join('')}</ul></div>`}
+    const markupStatus={proposed:'автоматическая, ждёт подтверждения',accepted:'подтверждена специалистом',edited:'исправлена специалистом',rejected:'отклонена специалистом'};
+    function checksHtml(m){const checks=(m.checks||[]).map(c=>{const mark=c.ok===true?'✓':c.ok===false?'✕':'?',cls=c.ok===true?'ok':c.ok===false?'bad':'';const val=c.measured!=null?`: ${Math.round(c.measured)} мм (норма ≥ ${Math.round(c.required)})`:'';return `<li class="${cls}"><b>${mark}</b> ${esc(c.criterion)}${esc(val)}</li>`}).join('');const notes=(m.notes||[]).map(n=>`<li class="note-line">${esc(n)}</li>`).join('');return `<p class="result-subtitle">Разметка ${esc(markupStatus[m.status]||m.status||'')} · надёжность ${m.confidence==='high'?'высокая':'низкая'}</p><ul class="checks">${checks}${notes}</ul>`}
+    function markupBlock(r,index){const m=r.markup||{};if(!m.shapes||!m.shapes.length)return m.notes&&m.notes.length?`<div class="details"><h4>Разметка областей измерения</h4><p>${esc(m.notes.join(' '))}</p></div>`:'';return `<div class="details"><h4>Разметка областей измерения</h4><div id="checks-${index}">${checksHtml(m)}</div></div>`}
+    function reviewDone(rv){if(!rv||!rv.decision)return '';const ok=rv.decision==='confirmed';const mk={accepted:'разметка подтверждена',edited:'разметка исправлена',rejected:'разметка отклонена'}[rv.markup_decision]||'';
+      return `<div class="review-done ${ok?'':'rejected'}"><span class="rd-status">${ok?'✓ Вывод подтверждён':'✕ Вывод отклонён'}</span><span class="rd-meta">Врач: ${esc(rv.reviewer)}${mk?' · '+mk:''} · DICOM SR: VERIFIED</span>${rv.comment?`<span class="rd-comment">«${esc(rv.comment)}»</span>`:''}</div>`}
+    function reviewBlock(r,index){
+      const hasMarkup=!!(r.markup&&r.markup.shapes&&r.markup.shapes.length);
+      const markupSelect=hasMarkup?`<select id="mkdec-${index}" aria-label="Решение по разметке" title="Если точки разметки передвигались, она сохранится как исправленная специалистом"><option value="accepted">Разметка верна</option><option value="rejected">Разметка неверна</option></select>`:'';
+      return `<div class="review" id="review-${index}"><div class="review-head"><h4>Подтверждение специалистом</h4>${r.recommendation?`<span class="review-note" title="${esc(r.recommendation)}">${esc(r.recommendation)}</span>`:''}</div><div class="review-row${hasMarkup?' with-markup':''}"><input id="reviewer-${index}" placeholder="Специалист (ФИО)" maxlength="64" aria-label="Специалист"><input id="comment-${index}" placeholder="Комментарий" maxlength="1000" aria-label="Комментарий">${markupSelect}<button class="btn btn-blue" type="button" data-review="${index}" data-decision="confirmed">Подтвердить вывод</button><button class="btn btn-ghost" type="button" data-review="${index}" data-decision="rejected">Отклонить вывод</button></div><div id="review-state-${index}">${reviewDone(r.review)}</div></div>`;
+    }
+    // ---- markup editor: the densitometer-style ROI markup, editable by dragging points
+    const clone=o=>JSON.parse(JSON.stringify(o));
+    function setupEditor(i){const r=lastResults[i];if(editors[i]||!r.markup||!r.markup.shapes)return;const cv=$(`#cv-${i}`);if(!cv)return;const img=new Image();const ed={i,cv,img,rows:r.markup.image_shape[0],cols:r.markup.image_shape[1],shapes:clone(r.markup.shapes),auto:clone(r.markup.shapes),derived:r.markup.derived||[],edited:false,drag:null};editors[i]=ed;img.onload=()=>{cv.width=img.naturalWidth;cv.height=img.naturalHeight;drawEditor(ed)};img.src=`/v1/jobs/${jobId}/image/${i}`;
+      // The canvas is letterboxed by object-fit: map the pointer through the drawn area, not the element box.
+      const fit=()=>{const b=cv.getBoundingClientRect(),s=Math.min(b.width/cv.width,b.height/cv.height)||1;return {b,s,ox:(b.width-cv.width*s)/2,oy:(b.height-cv.height*s)/2}};
+      const pos=e=>{const f=fit();return [(e.clientX-f.b.left-f.ox)/f.s,(e.clientY-f.b.top-f.oy)/f.s]};
+      cv.addEventListener('pointerdown',e=>{const [x,y]=pos(e);let best=null,bd=14/fit().s;for(const h of handles(ed)){const d=Math.hypot(h.x-x,h.y-y);if(d<bd){bd=d;best=h}}if(best){ed.drag={h:best,x,y};cv.setPointerCapture(e.pointerId);e.preventDefault()}});
+      cv.addEventListener('pointermove',e=>{if(!ed.drag)return;const [x,y]=pos(e);moveHandle(ed,ed.drag.h,(x-ed.drag.x)*ed.cols/cv.width,(y-ed.drag.y)*ed.rows/cv.height);ed.drag.x=x;ed.drag.y=y;ed.edited=true;drawEditor(ed)});
+      const end=()=>{ed.drag=null};cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);}
+    const isRoi=s=>s.label.startsWith('Область интереса'),isNeck=s=>s.label==='Шейка бедра';
+    function handles(ed){const sx=ed.cv.width/ed.cols,sy=ed.cv.height/ed.rows,out=[];ed.shapes.forEach((s,k)=>{const pts=s.points;if(isNeck(s)){const cx=pts.reduce((a,p)=>a+p[0],0)/pts.length,cy=pts.reduce((a,p)=>a+p[1],0)/pts.length;out.push({k,kind:'move',x:cx*sx,y:cy*sy});return}pts.forEach((p,j)=>out.push({k,j,kind:isRoi(s)?'rect':'point',x:p[0]*sx,y:p[1]*sy}));if(s.type==='POLYLINE'&&pts.length===2)out.push({k,kind:'move',x:(pts[0][0]+pts[1][0])/2*sx,y:(pts[0][1]+pts[1][1])/2*sy})});return out}
+    function moveHandle(ed,h,dx,dy){const pts=ed.shapes[h.k].points,cl=(v,m)=>Math.max(0,Math.min(m-1,v));if(h.kind==='move'){pts.forEach(p=>{p[0]=cl(p[0]+dx,ed.cols);p[1]=cl(p[1]+dy,ed.rows)});return}const p=pts[h.j];p[0]=cl(p[0]+dx,ed.cols);p[1]=cl(p[1]+dy,ed.rows);if(h.kind==='rect'){const shareY=h.j%2===0?h.j+1:h.j-1,shareX=(h.j%2===0?h.j+3:h.j+1)%4;pts[shareY][1]=p[1];pts[shareX][0]=p[0]}}
+    // Colours of the densitometer screen: yellow bone edge, cyan measurement regions.
+    const STYLE={edge:'#ecde40',roi:'#5fd7e8',landmark:'#ffa85a'};
+    const centroid=pts=>[pts.reduce((a,p)=>a+p[0],0)/pts.length,pts.reduce((a,p)=>a+p[1],0)/pts.length];
+    function drawEditor(ed){const c=ed.cv.getContext('2d'),sx=ed.cv.width/ed.cols,sy=ed.cv.height/ed.rows;c.clearRect(0,0,ed.cv.width,ed.cv.height);c.drawImage(ed.img,0,0);c.font='12px sans-serif';
+      const path=(pts,close)=>{c.beginPath();pts.forEach((p,j)=>j?c.lineTo(p[0]*sx,p[1]*sy):c.moveTo(p[0]*sx,p[1]*sy));if(close)c.closePath();c.stroke()};
+      const neck=ed.shapes.find(isNeck),neck0=ed.auto.find(isNeck),roi=ed.shapes.find(isRoi);
+      ed.derived.forEach(s=>{if(/^L\d$/.test(s.label)||s.label==='Линия вертела')return;c.strokeStyle=STYLE[s.style]||'#ffffff';c.lineWidth=s.style==='edge'?1:2;let pts=s.points;
+        if(s.label==='Треугольник Варда'&&neck&&neck0){const a=centroid(neck.points),b=centroid(neck0.points);pts=pts.map(p=>[p[0]+a[0]-b[0],p[1]+a[1]-b[1]])}
+        if(s.type==='ELLIPSE'){const xs=pts.map(p=>p[0]*sx),ys=pts.map(p=>p[1]*sy);c.setLineDash([4,4]);c.beginPath();c.ellipse((Math.min(...xs)+Math.max(...xs))/2,(Math.min(...ys)+Math.max(...ys))/2,(Math.max(...xs)-Math.min(...xs))/2,(Math.max(...ys)-Math.min(...ys))/2,0,0,Math.PI*2);c.stroke();c.setLineDash([])}else path(pts,s.type==='POLYGON')});
+      c.lineWidth=2;c.strokeStyle=STYLE.roi;
+      if(roi)path([roi.points[0],roi.points[2]],false);
+      const lines=ed.shapes.filter(s=>/^(T12|L\d)\//.test(s.label)).sort((a,b)=>a.points[0][1]-b.points[0][1]);
+      if(lines.length===5)for(let j=0;j<4;j++){const u=lines[j].points,l=lines[j+1].points;path([u[0],u[1],l[1],l[0]],true);c.fillStyle=STYLE.roi;c.fillText('L'+(j+1),Math.min(u[0][0],l[0][0])*sx+5,(u[0][1]+l[0][1])/2*sy+4)}
+      ed.shapes.forEach(s=>{c.strokeStyle=STYLE[s.style]||STYLE.roi;path(s.points,s.type==='POLYGON')});
+      handles(ed).forEach(h=>{c.beginPath();c.fillStyle=h.kind==='move'?'#43dfbd':'#ffffff';c.arc(h.x,h.y,h.kind==='move'?5:4,0,Math.PI*2);c.fill()});}
+    document.addEventListener('click',e=>{const t=e.target.closest('button.seg');if(t){const i=t.dataset.i,pv=$(`#pv-${i}`),mode=t.dataset.tab;t.parentElement.querySelectorAll('.seg').forEach(b=>b.classList.toggle('active',b===t));const src=pv.querySelector('.pv-source');if(mode==='source'&&src&&!src.getAttribute('src'))src.src=src.dataset.src;if(src)src.hidden=mode!=='source';const ex=pv.querySelector('.pv-explain');if(ex)ex.hidden=mode!=='explain';const cv=$(`#cv-${i}`);if(cv)cv.hidden=mode!=='markup';[`#hint-${i}`,`#reset-${i}`].forEach(s=>{const el=$(s);if(el)el.hidden=mode!=='markup'});if(mode==='markup')setupEditor(Number(i));return}
+      const rs=e.target.closest('button[data-reset]');if(rs){const ed=editors[rs.dataset.reset];if(ed){ed.shapes=clone(ed.auto);ed.edited=false;drawEditor(ed)}}});
+    // ---- worklist: click a checkbox to mark for bulk download, click the row to jump the slide,
+    // Ctrl/Cmd-click anywhere on a row toggles its checkbox instead of jumping — lets a reviewer
+    // mark several studies for download without aiming at the small checkbox each time.
+    document.addEventListener('click',e=>{
+      if(e.target.closest('.wl-check')){updateDownloadSelectedState();return}
+      if(e.target.closest('#dl-selected')){const idxs=selectedIndices();if(!idxs.length||!jobId)return;window.location.href=`/v1/jobs/${jobId}/zip?indices=${idxs.join(',')}`;return}
+      const row=e.target.closest('.wl-row');if(!row)return;
+      if(e.ctrlKey||e.metaKey){const cb=row.querySelector('.wl-check');if(cb){cb.checked=!cb.checked;updateDownloadSelectedState()}return}
+      const pos=queueOrder.indexOf(Number(row.dataset.i));if(pos>=0)showSlide(pos)
+    });
+    document.addEventListener('keydown',e=>{if(e.key!=='Enter')return;const row=e.target.closest('.wl-row');if(!row)return;const pos=queueOrder.indexOf(Number(row.dataset.i));if(pos>=0)showSlide(pos)});
+    $('#prev-slide').addEventListener('click',()=>showSlide(slidePos-1));
+    $('#next-slide').addEventListener('click',()=>showSlide(slidePos+1));
+    // ---- full screen: the slide with its image, details and the specialist's decision
+    const slideBox=$('.slide'),fullBtn=$('#full-toggle');
+    const fsElement=()=>document.fullscreenElement||document.webkitFullscreenElement;
+    function setFull(on){slideBox.classList.toggle('is-full',on);fullBtn.setAttribute('aria-pressed',String(on));fullBtn.querySelector('span').textContent=on?'Свернуть':'Во весь экран';recheckOverflow()}
+    function toggleFull(){
+      if(slideBox.classList.contains('is-full')){if(fsElement())(document.exitFullscreen||document.webkitExitFullscreen).call(document);setFull(false);return}
+      setFull(true);const request=slideBox.requestFullscreen||slideBox.webkitRequestFullscreen;
+      if(request)Promise.resolve(request.call(slideBox)).catch(()=>{});
+    }
+    fullBtn.addEventListener('click',toggleFull);
+    ['fullscreenchange','webkitfullscreenchange'].forEach(n=>document.addEventListener(n,()=>{if(!fsElement()&&slideBox.classList.contains('is-full'))setFull(false)}));
+    // ---- keyboard: ← / → step through the queue, F toggles full screen; never while typing in a field
+    const typing=el=>!!el&&(el.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+    document.addEventListener('keydown',e=>{
+      if(!results.classList.contains('visible')||e.altKey||e.ctrlKey||e.metaKey)return;
+      if(e.key==='Escape'&&slideBox.classList.contains('is-full')){toggleFull();return}
+      if(typing(e.target))return;
+      if(e.key==='ArrowLeft'||e.key==='ArrowRight'){if(queueOrder.length<2)return;e.preventDefault();showSlide(slidePos+(e.key==='ArrowRight'?1:-1));return}
+      if(e.code==='KeyF'&&!e.repeat){e.preventDefault();toggleFull()}
+    });
+    document.addEventListener('click',async e=>{const b=e.target.closest('button[data-review]');if(!b||!jobId)return;const i=Number(b.dataset.review),state=$(`#review-state-${i}`),reviewer=$(`#reviewer-${i}`).value.trim();if(!reviewer){state.innerHTML='<div class="review-done rejected">Укажите специалиста</div>';return}
+      const ed=editors[i],sel=$(`#mkdec-${i}`);let markup_decision=sel?sel.value:'accepted',markup_shapes=[];if(markup_decision==='accepted'&&ed&&ed.edited){markup_decision='edited';markup_shapes=ed.shapes.map(s=>({label:s.label,points:s.points}))}
+      const body={decision:b.dataset.decision,reviewer,comment:$(`#comment-${i}`).value,markup_decision,markup_shapes};
+      try{const resp=await fetch(`/v1/jobs/${jobId}/review/${i}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await resp.json().catch(()=>({}));if(!resp.ok)throw new Error(typeof data.detail==='string'?data.detail:'Не удалось сохранить решение');lastResults[i]=Object.assign(lastResults[i],data.result);state.innerHTML=reviewDone(data.result.review);const ch=$(`#checks-${i}`);if(ch&&data.result.markup)ch.innerHTML=checksHtml(data.result.markup);if(ed){ed.auto=clone(ed.shapes);ed.edited=false}markReviewed(i);recheckOverflow();
+        // Save, then step to the next study in the queue — a reviewer works through the list in order.
+        if(slidePos<queueOrder.length-1)setTimeout(()=>showSlide(slidePos+1),650)}catch(err){state.innerHTML=`<div class="review-done rejected">${esc(err.message)}</div>`}});
+    run.addEventListener('click',async()=>{run.disabled=true;progress.style.display='block';message.className='message';message.textContent='Анализируем изображения и строим визуализации…';results.classList.remove('visible');const data=new FormData();selected.forEach(f=>data.append('files',f));try{const response=await fetch('/v1/jobs',{method:'POST',body:data}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.detail||body.error||'Ошибка обработки');jobId=body.job_id;lastResults=body.results;Object.keys(editors).forEach(k=>delete editors[k]);queueOrder=renderWorklist(body.results);showSlide(0);results.classList.add('visible');message.className='message success';message.textContent='Готово — результаты показаны ниже.';results.scrollIntoView({behavior:'smooth',block:'start'});}catch(error){message.className='message error';message.textContent=error.message;}finally{progress.style.display='none';run.disabled=false;}});
+    $('#reset').addEventListener('click',()=>{if(slideBox.classList.contains('is-full'))toggleFull();selected=[];picker.value='';showFiles([]);results.classList.remove('visible');window.scrollTo({top:0,behavior:'smooth'})});
+    // 3D hero demo. Raw WebGL (the service runs offline, no libraries), a transparent canvas for
+    // the bone and a 2D canvas on top for the densitometer markup projected from 3D anchors.
+    (()=>{
+      const fig=$('.demo');if(!fig)return;
+      const viewer=fig.querySelector('.demo-viewer'),glc=fig.querySelector('.demo-gl'),ov=fig.querySelector('.demo-ov'),ctx=ov.getContext('2d');
+      const chips=[...fig.querySelectorAll('.demo-chip')],steps=[...fig.querySelectorAll('.demo-steps li')],verdict=fig.querySelector('.demo-verdict');
+      const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+      // Anatomy anchors baked with the mesh (mm, model space: y up, z anterior).
+      const M={"L5":{"c":[0.0,-79.7,-3.0],"tilt":17,"a":25.0,"b":17.5,"h":27.0},"L4":{"c":[0.0,-43.71,5.31],"tilt":9,"a":24.5,"b":17.5,"h":27.0},"L3":{"c":[0.0,-7.43,8.83],"tilt":2,"a":24.0,"b":17.0,"h":26.0},"L2":{"c":[0.0,27.51,7.95],"tilt":-5,"a":23.0,"b":16.5,"h":25.0},"L1":{"c":[0.0,60.7,3.6],"tilt":-10,"a":22.0,"b":16.0,"h":24.0},"T12":{"c":[0.0,90.64,-2.21],"tilt":-12,"a":20.5,"b":15.0,"h":23.0},"T11":{"c":[0.0,118.57,-7.9],"tilt":-11,"a":19.0,"b":14.5,"h":22.0},"T10":{"c":[0.0,145.15,-12.59],"tilt":-9,"a":17.5,"b":14.0,"h":21.0},"clasp":[-9.0,96.64,32.79],"bounds":[[-118.5,-162.6,-136.6],[118.5,162.6,47.7]]};
+      const T=14,clamp=(x,a,b)=>Math.min(b,Math.max(a,x)),seg=(t,a,b)=>clamp((t-a)/(b-a),0,1),ease=e=>e<.5?4*e*e*e:1-Math.pow(-2*e+2,3)/2,mix=(a,b,k)=>a+(b-a)*k;
+      const win=(t,a,b,f=.02)=>seg(t,a-f,a)*(1-seg(t,b,b+f));
+      // UI chips, steps and verdict follow the same clock as the 3D scene.
+      let ui='';
+      function setUI(t){const c=t>=.03&&t<.19?0:t>=.3&&t<.47?1:t>=.58&&t<.74?2:t>=.78&&t<.95?3:-1,s=t<.19?0:t<.47?1:t<.74?2:3,v=t>=.76&&t<.95,key=c+'|'+s+'|'+v;if(key===ui)return;ui=key;chips.forEach((el,i)=>el.classList.toggle('on',i===c));steps.forEach((el,i)=>el.classList.toggle('on',i===s));verdict.classList.toggle('on',v)}
+      let gl=null;try{gl=glc.getContext('webgl',{alpha:true,premultipliedAlpha:true,antialias:true})}catch(e){}
+      if(!gl){viewer.classList.add('no-gl','ready');setUI(.8);return}
+
+      const VS=`attribute vec3 aPos;attribute vec2 aOct;attribute float aAo;attribute float aId;
+uniform mat4 uVP;uniform mat3 uRot;uniform float uScale;uniform float uGlow[6];
+varying vec3 vW;varying vec3 vN;varying vec3 vM;varying float vAo;varying float vGlow;varying float vId;
+vec3 oct(vec2 e){vec3 n=vec3(e,1.0-abs(e.x)-abs(e.y));if(n.z<0.0)n.xy=(1.0-abs(n.yx))*vec2(n.x>=0.0?1.0:-1.0,n.y>=0.0?1.0:-1.0);return normalize(n);}
+void main(){vec3 p=aPos*uScale;vM=p;vW=uRot*p;vN=uRot*oct(aOct);vAo=aAo;vId=aId;
+float g=0.0;for(int i=0;i<6;i++){if(abs(aId-float(i))<0.5)g=uGlow[i];}vGlow=g;
+gl_Position=uVP*vec4(vW,1.0);}`;
+      const FS=`precision highp float;
+varying vec3 vW;varying vec3 vN;varying vec3 vM;varying float vAo;varying float vGlow;varying float vId;
+uniform vec3 uCam;uniform vec3 uHeatPos;uniform float uScanY;uniform float uScanOn;uniform float uEdge;uniform float uHeat;uniform float uDissolve;uniform float uDisc;
+float hash(vec3 p){p=fract(p*0.3183099+0.1);p*=17.0;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
+float noise(vec3 x){vec3 i=floor(x);vec3 f=fract(x);f=f*f*(3.0-2.0*f);
+return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}
+void main(){
+vec3 N=normalize(vN);vec3 V=normalize(uCam-vW);
+float ndv=clamp(dot(N,V),0.0,1.0);float F=pow(1.0-ndv,2.6);float Fr=pow(1.0-ndv,3.6);float Fg=pow(1.0-ndv,1.7);
+vec3 L=normalize(vec3(-0.5,0.62,0.6));vec3 L2=normalize(vec3(0.75,0.05,-0.45));
+float dif=max((dot(N,L)+0.5)/1.5,0.0);float back=max(dot(N,L2),0.0);
+float spec=pow(max(dot(N,normalize(L+V)),0.0),42.0);
+float ao=mix(0.28,1.0,vAo*vAo);
+float hgt=clamp(vM.y/300.0+0.5,0.0,1.0);
+vec3 rimC=mix(vec3(0.55,0.40,1.0),vec3(0.45,0.86,0.95),hgt);
+rimC=mix(rimC,vec3(0.96,0.89,0.30),uEdge);
+float n1=noise(vM*0.45)*0.55+noise(vM*1.6)*0.3+noise(vM*4.2)*0.15;
+vec3 col;float a=1.0;
+float isMetal=step(10.5,vId);float isRib=step(8.5,vId)*step(vId,9.5);
+if(uDisc>0.5){
+ col=mix(vec3(0.20,0.22,0.42),vec3(0.62,0.70,1.0),F)*(0.45+0.55*dif)+vec3(0.8,0.85,1.0)*spec*0.35;
+ a=0.42+0.5*F;
+}else{
+ vec3 bone=mix(vec3(0.80,0.745,0.67),vec3(1.0,0.965,0.90),n1);
+ col=bone*(0.12+0.92*dif)*ao+vec3(1.0,0.97,0.92)*spec*0.26*ao+vec3(0.30,0.09,0.05)*(1.0-dif)*0.30*ao;
+ col=mix(col,col*vec3(0.86,0.88,1.0),isRib*0.35);
+ if(isMetal>0.5){vec3 r=reflect(-V,N);float e=smoothstep(-0.15,0.55,r.y)+0.35*smoothstep(0.6,0.95,abs(r.x));col=mix(vec3(0.07,0.07,0.1),vec3(1.0),clamp(e,0.0,1.0))*0.95+spec*0.8;}
+ col+=rimC*(Fr*1.35+back*0.28)*(0.55+0.45*ao);
+ col+=vec3(0.37,0.84,0.92)*vGlow*(0.10+0.9*F)+vec3(0.37,0.84,0.92)*vGlow*0.10*dif;
+}
+float d=length(vM-uHeatPos);float heat=uHeat*exp(-d*d/(2.0*17.0*17.0));
+vec3 heatC=mix(vec3(0.95,0.22,0.08),vec3(1.0,0.86,0.30),smoothstep(0.35,0.95,heat));
+col=mix(col,col*0.35+heatC*1.15,clamp(heat,0.0,1.0)*0.9);
+float s=vW.y-uScanY+(noise(vM*0.3)-0.5)*9.0;
+float rev=smoothstep(-1.5,1.5,s);
+rev*=1.0-uDissolve;
+vec3 ghost=rimC*(0.55+1.2*Fg);float ga=(0.035+0.42*Fg)*(uDisc>0.5?0.5:1.0);
+float band=uScanOn*exp(-abs(s)*0.28);
+col=mix(ghost,col,rev)+vec3(0.55,0.92,1.0)*band*1.4;
+a=mix(ga,a,rev);a=clamp(a+band*0.6,0.0,1.0);
+col=vec3(1.0)-exp(-col*1.25);
+gl_FragColor=vec4(col*a,a);}`;
+      function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s}
+      let prog;try{prog=gl.createProgram();gl.attachShader(prog,sh(gl.VERTEX_SHADER,VS));gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FS));gl.linkProgram(prog);if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(prog))}catch(e){console.warn(e);viewer.classList.add('no-gl','ready');setUI(.8);return}
+      const U={};['uVP','uRot','uScale','uGlow','uCam','uHeatPos','uScanY','uScanOn','uEdge','uHeat','uDissolve','uDisc'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+      let mesh=null;
+      fetch('/static/spine-3d.bin').then(r=>{if(!r.ok)throw new Error(r.status);return r.arrayBuffer()}).then(buf=>{
+        const h=new DataView(buf),nv=h.getUint32(4,true),nb=h.getUint32(8,true),nd=h.getUint32(12,true),scale=h.getFloat32(16,true);
+        const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,new Uint8Array(buf,20,nv*10),gl.STATIC_DRAW);
+        const ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(buf.slice(20+nv*10)),gl.STATIC_DRAW);
+        gl.useProgram(prog);
+        const at=(n,size,type,norm,off)=>{const l=gl.getAttribLocation(prog,n);gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,size,type,norm,10,off)};
+        at('aPos',3,gl.SHORT,true,0);at('aOct',2,gl.BYTE,true,6);at('aAo',1,gl.UNSIGNED_BYTE,true,8);at('aId',1,gl.UNSIGNED_BYTE,false,9);
+        gl.uniform1f(U.uScale,scale);
+        mesh={nb,nd};viewer.classList.add('ready');draw();
+      }).catch(e=>{console.warn('spine model',e);viewer.classList.add('no-gl','ready');setUI(.8)});
+
+      // --- anatomy for the markup -------------------------------------------------------
+      const up=d=>{const r=d*Math.PI/180;return[0,Math.cos(r),Math.sin(r)]},add=(a,b,k=1)=>[a[0]+b[0]*k,a[1]+b[1]*k,a[2]+b[2]*k];
+      const order=['L5','L4','L3','L2','L1','T12','T11','T10'];
+      const top=n=>add(M[n].c,up(M[n].tilt),M[n].h/2),bot=n=>add(M[n].c,up(M[n].tilt),-M[n].h/2);
+      const mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2];
+      const bound=(lo,hi)=>mid(top(lo),bot(hi));   // mid-disc between two levels
+      const sacTop=add(bot('L5'),up(26),-10);
+      const B={L1:[bound('L1','L2'),bound('T12','L1')],L2:[bound('L2','L3'),bound('L1','L2')],L3:[bound('L3','L4'),bound('L2','L3')],L4:[bound('L4','L5'),bound('L3','L4')]};
+      const crest=bound('L4','L5');
+      const axisPts=[bot('T10').map((v,i)=>i===1?v+26:v),...order.slice().reverse().map(n=>M[n].c),sacTop];
+      const K0={ty:8,H:345,tx:0},K1={ty:-16,H:205,tx:0},K2={ty:M.clasp[1]-10,H:150,tx:M.clasp[0]*.5};
+
+      // --- matrices (column-major) ------------------------------------------------------
+      const mul=(a,b)=>{const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+r]*b[c*4+k];o[c*4+r]=s}return o};
+      const persp=(f,asp,n,fa)=>{const t=1/Math.tan(f/2);return new Float32Array([t/asp,0,0,0,0,t,0,0,0,0,(fa+n)/(n-fa),-1,0,0,2*fa*n/(n-fa),0])};
+      const FOV=22*Math.PI/180;
+      let W=0,Hh=0,dpr=1,VP,R3,cam;
+      function rot(yaw,pitch){const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+        // R = Rx(pitch)·Ry(yaw), row-major rows then stored column-major for GLSL
+        const r=[[cy,0,sy],[sp*sy,cp,-sp*cy],[-cp*sy,sp,cp*cy]];return r}
+      let Rm;
+      const tf=p=>[Rm[0][0]*p[0]+Rm[0][1]*p[1]+Rm[0][2]*p[2],Rm[1][0]*p[0]+Rm[1][1]*p[1]+Rm[1][2]*p[2],Rm[2][0]*p[0]+Rm[2][1]*p[1]+Rm[2][2]*p[2]];
+      function projW(w){const x=VP[0]*w[0]+VP[4]*w[1]+VP[8]*w[2]+VP[12],y=VP[1]*w[0]+VP[5]*w[1]+VP[9]*w[2]+VP[13],ww=VP[3]*w[0]+VP[7]*w[1]+VP[11]*w[2]+VP[15];return[(x/ww*.5+.5)*W,(1-(y/ww*.5+.5))*Hh,ww]}
+      const proj=p=>projW(tf(p));
+
+      function resize(){const w=viewer.clientWidth,h=viewer.clientHeight,d=Math.min(devicePixelRatio||1,2);if(w===W&&h===Hh&&d===dpr)return;W=w;Hh=h;dpr=d;
+        for(const c of[glc,ov]){c.width=Math.round(w*d);c.height=Math.round(h*d)}}
+
+      function camera(t){let a=K0,b=K0,k=0;
+        if(t<.2){}else if(t<.28){b=K1;k=seg(t,.2,.28)}else if(t<.47){a=b=K1}else if(t<.56){a=K1;b=K2;k=seg(t,.47,.56)}else if(t<.74){a=b=K2}else if(t<.86){a=K2;k=seg(t,.74,.86)}
+        k=ease(k);return{ty:mix(a.ty,b.ty,k),H:mix(a.H,b.H,k),tx:mix(a.tx,b.tx,k)}}
+
+      // --- 2D markup helpers --------------------------------------------------------------
+      function poly(pts,prog,close){if(prog<=0)return;const P=close?[...pts,pts[0]]:pts;let L=0;const seglen=[];for(let i=1;i<P.length;i++){const l=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);seglen.push(l);L+=l}
+        let rem=L*prog;ctx.beginPath();ctx.moveTo(P[0][0],P[0][1]);for(let i=1;i<P.length&&rem>0;i++){const l=seglen[i-1],k=Math.min(1,rem/l);ctx.lineTo(P[i-1][0]+(P[i][0]-P[i-1][0])*k,P[i-1][1]+(P[i][1]-P[i-1][1])*k);rem-=l}ctx.stroke()}
+      function glow(color,blur){ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=blur}
+
+      function overlay(t,cm){ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,Hh);ctx.lineCap='round';ctx.lineJoin='round';
+        const fade=1-seg(t,.93,.97);
+        // scanner ring sweeping down the study
+        const so=win(t,.05,.2,.015);
+        if(so>0){const y=scanY(t),R=78,pts=[];for(let i=0;i<=72;i++){const a=i/72*Math.PI*2;pts.push(projW([Math.cos(a)*R,y,Math.sin(a)*R]))}
+          ctx.save();ctx.globalAlpha=so;
+          const g=ctx.createLinearGradient(0,pts[18][1]-40,0,pts[18][1]);g.addColorStop(0,'rgba(140,200,255,0)');g.addColorStop(1,'rgba(160,220,255,.10)');
+          ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]-40);for(let i=0;i<=36;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.lineTo(pts[36][0],pts[36][1]-40);ctx.fill();
+          ctx.lineWidth=1;glow('rgba(150,210,255,.35)',0);ctx.beginPath();for(let i=36;i<=72;i++){const p=pts[i];i===36?ctx.moveTo(p[0],p[1]):ctx.lineTo(p[0],p[1])}ctx.stroke();
+          ctx.lineWidth=1.6;glow('rgba(200,240,255,.95)',14);ctx.beginPath();for(let i=0;i<=36;i++){const p=pts[i];i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])}ctx.stroke();ctx.restore()}
+        if(t<.29||fade<=0)return;
+        ctx.save();ctx.globalAlpha=fade;
+        // spine axis through the vertebral bodies
+        ctx.lineWidth=1.4;glow('rgba(67,223,189,.85)',8);ctx.setLineDash([]);poly(axisPts.map(p=>proj(p)),ease(seg(t,.3,.36)),false);
+        // crest line (iliac crests) at the L4/L5 level
+        const cp=ease(seg(t,.41,.45));if(cp>0){const c0=crest;ctx.lineWidth=1.8;glow('rgba(255,168,90,.95)',10);const a=proj(add(c0,[-96,0,0])),b=proj(add(c0,[96,0,0])),m=[(a[0]+b[0])/2,(a[1]+b[1])/2];
+          poly([m,a],cp,false);poly([m,b],cp,false);ctx.shadowBlur=0;ctx.fillStyle='rgba(255,168,90,.95)';if(cp>=1)for(const p of[a,b]){ctx.beginPath();ctx.arc(p[0],p[1],2.4,0,7);ctx.fill()}}
+        // L1–L4 regions of interest on the anterior face of each body
+        ['L1','L2','L3','L4'].forEach((n,k)=>{const p=ease(seg(t,.32+.026*k,.37+.026*k));if(p<=0)return;const [lo,hi]=B[n],w=35,z=0;
+          const q=[[-w,hi[1],hi[2]+z],[w,hi[1],hi[2]+z],[w,lo[1],lo[2]+z],[-w,lo[1],lo[2]+z]].map(proj);
+          ctx.fillStyle=`rgba(95,215,232,${.07*p})`;ctx.shadowBlur=0;ctx.beginPath();q.forEach((v,i)=>i?ctx.lineTo(v[0],v[1]):ctx.moveTo(v[0],v[1]));ctx.closePath();ctx.fill();
+          ctx.lineWidth=1.5;glow('rgba(95,215,232,.95)',9);poly(q,p,true);
+          const la=seg(t,.36+.026*k,.39+.026*k);if(la>0){ctx.save();ctx.globalAlpha*=la;ctx.shadowBlur=0;const x=q[0][0]+6,y=q[0][1]+6;ctx.font='600 11px '+getComputedStyle(document.body).fontFamily;
+            ctx.fillStyle='rgba(8,26,34,.72)';const tw=ctx.measureText(n).width;ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,tw+10,17,5):ctx.rect(x,y,tw+10,17);ctx.fill();ctx.fillStyle='#7fe6f2';ctx.fillText(n,x+5,y+12.5);ctx.restore()}});
+        // heat-map glow of the occlusion map over the flagged zone
+        const hz=heatAt(t);if(hz>0){const c=proj(M.clasp),e=proj(add(M.clasp,[46,0,0])),r=Math.abs(e[0]-c[0]);ctx.save();ctx.globalCompositeOperation='lighter';ctx.shadowBlur=0;const g=ctx.createRadialGradient(c[0],c[1],0,c[0],c[1],r);g.addColorStop(0,`rgba(255,214,90,${.55*hz})`);g.addColorStop(.35,`rgba(255,140,50,${.28*hz})`);g.addColorStop(1,'rgba(255,80,30,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(c[0],c[1],r,0,7);ctx.fill();ctx.restore()}
+        // flagged zone: target brackets and pulses around the foreign object
+        const bz=seg(t,.55,.6);if(bz>0){const c=proj(M.clasp),r0=proj(add(M.clasp,[14,0,0])),rad=Math.max(14,Math.abs(r0[0]-c[0]))*(1+1.2*(1-ease(bz))),arm=rad*.45;
+          ctx.save();ctx.globalAlpha*=ease(bz);ctx.lineWidth=1.8;glow('rgba(255,179,92,.95)',10);
+          for(const[sx,sy]of[[-1,-1],[1,-1],[1,1],[-1,1]]){ctx.beginPath();ctx.moveTo(c[0]+sx*rad,c[1]+sy*(rad-arm));ctx.lineTo(c[0]+sx*rad,c[1]+sy*rad);ctx.lineTo(c[0]+sx*(rad-arm),c[1]+sy*rad);ctx.stroke()}
+          for(const st of[.58,.635,.69]){const k=seg(t,st,st+.06);if(k>0&&k<1){ctx.globalAlpha=fade*(1-k)*.9;ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(c[0],c[1],rad*(.4+1.1*ease(k)),0,7);ctx.stroke()}}
+          ctx.restore()}
+        ctx.restore()}
+
+      const topY=M.bounds[1][1]+14,botY=M.bounds[0][1]-14;
+      const scanY=t=>t<.05?topY:t>.2?botY:mix(topY,botY,ease(seg(t,.05,.2)));
+
+      function heatAt(t){let h=seg(t,.56,.61);if(t>.63&&t<.71)h=1-.32*Math.sin(Math.PI*seg(t,.63,.71));return h*(1-seg(t,.93,.97))}
+
+      function draw(t=.88,sec=0){if(!mesh)return;resize();
+        const cm=camera(t),breath=1+.012*Math.sin(sec*2*Math.PI/7);
+        const yaw=reduce?.12:.30*Math.sin(sec*2*Math.PI/9)+.05,pitch=reduce?.05:.05+.025*Math.sin(sec*2*Math.PI/12.5);
+        Rm=rot(yaw,pitch);
+        const dist=cm.H*breath/2/Math.tan(FOV/2);cam=[cm.tx,cm.ty,dist];
+        const P=persp(FOV,W/Hh,dist*.4,dist*3),V=new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,-cm.tx,-cm.ty,-dist,1]);VP=mul(P,V);
+        R3=new Float32Array([Rm[0][0],Rm[1][0],Rm[2][0],Rm[0][1],Rm[1][1],Rm[2][1],Rm[0][2],Rm[1][2],Rm[2][2]]);
+        gl.viewport(0,0,glc.width,glc.height);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+        gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.enable(gl.CULL_FACE);gl.cullFace(gl.FRONT);
+        gl.uniformMatrix4fv(U.uVP,false,VP);gl.uniformMatrix3fv(U.uRot,false,R3);gl.uniform3fv(U.uCam,cam);
+        const edge=seg(t,.28,.33)*(1-seg(t,.93,.97));
+        const lv=['L1','L2','L3','L4'].map((n,k)=>{const s=.32+.026*k;return(.55*win(t,s,s+.07,.03)+.22*seg(t,s,s+.05))*(1-seg(t,.47,.56)*.6)*(1-seg(t,.93,.97))});
+        // part ids: 0 sacrum, 1 L5, 2 L4, 3 L3, 4 L2, 5 L1
+        gl.uniform1fv(U.uGlow,new Float32Array([0,0,lv[3],lv[2],lv[1],lv[0]]));
+        gl.uniform3fv(U.uHeatPos,M.clasp);gl.uniform1f(U.uScanY,scanY(t));gl.uniform1f(U.uScanOn,win(t,.05,.2,.015));
+        gl.uniform1f(U.uEdge,edge);gl.uniform1f(U.uHeat,heatAt(t));gl.uniform1f(U.uDissolve,ease(seg(t,.945,.995)));
+        gl.uniform1f(U.uDisc,0);gl.depthMask(true);gl.drawElements(gl.TRIANGLES,mesh.nb,gl.UNSIGNED_SHORT,0);
+        gl.uniform1f(U.uDisc,1);gl.depthMask(false);gl.drawElements(gl.TRIANGLES,mesh.nd,gl.UNSIGNED_SHORT,mesh.nb*2);gl.depthMask(true);
+        overlay(t,cm);setUI(t)}
+
+      // Clock: runs only while the hero is on screen and the tab is visible.
+      let clock=0,last=0,raf=0,visible=true;
+      function loop(now){raf=requestAnimationFrame(loop);const dt=last?Math.min(.1,(now-last)/1000):0;last=now;clock+=dt;draw((clock%T)/T,clock)}
+      function run(on){if(reduce){draw(.88,0);return}if(on&&!raf){last=0;raf=requestAnimationFrame(loop)}else if(!on&&raf){cancelAnimationFrame(raf);raf=0}}
+      window.__demoSeek=(t,sec)=>{run(false);draw(t,sec||0)};
+      const sync=()=>run(visible&&!document.hidden&&!!mesh);
+      if('IntersectionObserver' in window)new IntersectionObserver(([e])=>{visible=e.isIntersecting;sync()}).observe(fig);
+      document.addEventListener('visibilitychange',sync);
+      const iv=setInterval(()=>{if(mesh){clearInterval(iv);sync()}},100);
+      addEventListener('resize',()=>{if(!raf&&mesh)draw(reduce?.88:(clock%T)/T,clock)});
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+# --- OS / редакторы ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# --- Python ---
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# --- Секреты и локальные настройки ---
+.env
+.env.*
+*.pem
+*.key
+
+# --- Данные организатора ---
+# Исключается содержимое dataset/, а не сама папка: иначе git не заходит
+# внутрь и исключение для тестового фрагмента не срабатывает.
+dataset/*
+!dataset/for tests/
+
+# --- Результаты запусков ---
+outputs/
+tmp/
+*.log
+
+# --- Материалы организатора и внутренние рабочие файлы ---
+*.pptx
+*.docx
+*.pdf
+deploy/

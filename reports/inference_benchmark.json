@@ -1,0 +1,36 @@
+{
+  "benchmark_version": 1,
+  "model_version": "dxa-quality-criteria-4.0",
+  "environment": {
+    "python": "3.12.10",
+    "platform": "Linux-6.10.14-linuxkit-aarch64-with-glibc2.36",
+    "processor": ""
+  },
+  "input": {
+    "path": "dataset/for tests",
+    "dicom_files": 3,
+    "repeats": 20,
+    "inference_calls": 60
+  },
+  "performance": {
+    "model_load_ms": 235.053,
+    "per_image_ms_mean": 66.361,
+    "per_image_ms_p50": 48.383,
+    "per_image_ms_p95": 105.0,
+    "per_image_ms_max": 109.237,
+    "batch_with_png_and_sr_seconds": 0.771,
+    "batch_images_per_second": 3.893,
+    "peak_rss_mb": 160.625
+  },
+  "reliability": {
+    "successful_batch_files": 3,
+    "failed_batch_files": 0,
+    "deterministic_across_repeats": true,
+    "malformed_dicom_controlled_failure": true,
+    "malformed_dicom_error": "Не удалось прочитать DICOM: Unable to decode the pixel data as the dataset's 'file_meta' has no (0002,0010) 'Transfer Syntax UID' element"
+  },
+  "notes": [
+    "The benchmark uses the supplied format-check corpus and includes PNG plus DICOM SR batch output.",
+    "Wall-clock values depend on host hardware; rerun on the final target environment."
+  ]
+}

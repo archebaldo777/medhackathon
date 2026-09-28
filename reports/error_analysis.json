@@ -1,0 +1,118 @@
+{
+  "note": "Out-of-fold predictions, same folds and seed as scripts/train.py; subgroups from the expert comment column.",
+  "subgroups": {
+    "scoliosis": {
+      "images": 43,
+      "studies": 14,
+      "spine_axis_deviation": {
+        "images": 19,
+        "expert_positive": 0,
+        "flagged": 7,
+        "false_positive": 7,
+        "false_negative": 0
+      },
+      "spine_positioning": {
+        "images": 19,
+        "expert_positive": 0,
+        "flagged": 1,
+        "false_positive": 1,
+        "false_negative": 0
+      },
+      "spine_quality": {
+        "images": 19,
+        "expert_positive": 4,
+        "flagged": 5,
+        "false_positive": 4,
+        "false_negative": 3
+      }
+    },
+    "endoprosthesis": {
+      "images": 9,
+      "studies": 2,
+      "foreign_object_or_artifact": {
+        "images": 5,
+        "expert_positive": 2,
+        "flagged": 0,
+        "false_positive": 0,
+        "false_negative": 2
+      },
+      "hip_quality": {
+        "images": 2,
+        "expert_positive": 0,
+        "flagged": 0,
+        "false_positive": 0,
+        "false_negative": 0
+      },
+      "spine_quality": {
+        "images": 5,
+        "expert_positive": 2,
+        "flagged": 0,
+        "false_positive": 0,
+        "false_negative": 2
+      }
+    },
+    "transitional_vertebra": {
+      "images": 8,
+      "studies": 1,
+      "spine_positioning": {
+        "images": 2,
+        "expert_positive": 2,
+        "flagged": 2,
+        "false_positive": 0,
+        "false_negative": 0
+      },
+      "spine_quality": {
+        "images": 2,
+        "expert_positive": 2,
+        "flagged": 2,
+        "false_positive": 0,
+        "false_negative": 0
+      }
+    },
+    "fracture": {
+      "images": 6,
+      "studies": 1,
+      "spine_axis_deviation": {
+        "images": 2,
+        "expert_positive": 2,
+        "flagged": 0,
+        "false_positive": 0,
+        "false_negative": 2
+      },
+      "foreign_object_or_artifact": {
+        "images": 2,
+        "expert_positive": 0,
+        "flagged": 0,
+        "false_positive": 0,
+        "false_negative": 0
+      },
+      "spine_quality": {
+        "images": 2,
+        "expert_positive": 0,
+        "flagged": 0,
+        "false_positive": 0,
+        "false_negative": 0
+      }
+    }
+  },
+  "markup_checks": {
+    "spine_positioning_vs_crest": {
+      "images": 172,
+      "reference_positive": 10,
+      "sensitivity": 0.7,
+      "specificity": 0.747
+    },
+    "scoliosis_vs_curve": {
+      "images": 172,
+      "reference_positive": 19,
+      "sensitivity": 0.579,
+      "specificity": 0.739
+    },
+    "hip_roi_vs_margins": {
+      "images": 320,
+      "reference_positive": 19,
+      "sensitivity": 0.474,
+      "specificity": 0.824
+    }
+  }
+}
