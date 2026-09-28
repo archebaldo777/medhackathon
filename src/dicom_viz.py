@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 from pydicom import dcmread
-from pydicom.dataset import FileDataset, FileMetaDataset
+from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
 from pydicom.uid import ExplicitVRLittleEndian, SecondaryCaptureImageStorage, generate_uid
 
 from .analyzer import AnalysisResult
@@ -90,5 +90,12 @@ def save_dicom_visualization(
     image.HighBit = 7
     image.PixelRepresentation = 0
     image.PixelData = pixels.tobytes()
+    # The explained source image (General Image module, Source Image Sequence).
+    source_image = Dataset()
+    source_image.ReferencedSOPClassUID = safe_uid(getattr(source, "SOPClassUID", ""))
+    source_image.ReferencedSOPInstanceUID = safe_uid(
+        getattr(source, "SOPInstanceUID", "") or result.image_uid
+    )
+    image.SourceImageSequence = [source_image]
     image.save_as(output, enforce_file_format=True)
     return output

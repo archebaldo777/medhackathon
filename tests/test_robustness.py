@@ -110,3 +110,23 @@ def test_time_of_processing_is_per_image_not_cumulative(tmp_path):
     times = [r.time_of_processing for r in results]
     # Cumulative timing made the first file carry the reading time of the whole batch.
     assert max(times) < 3 * min(times) + 0.5
+
+
+def test_derived_dicom_objects_reference_the_source_image(tmp_path):
+    source = tmp_path / "in"
+    source.mkdir()
+    path = make_dicom(source / "a.dcm", spine_pixels())
+    original = pydicom.dcmread(path)
+    results = process_directory(source, tmp_path / "out", visualizations=True)
+    artifacts = results[0].artifacts
+
+    report = pydicom.dcmread(tmp_path / "out" / artifacts["dicom_sr"])
+    evidence = report.CurrentRequestedProcedureEvidenceSequence[0]
+    assert evidence.StudyInstanceUID == original.StudyInstanceUID
+    series = evidence.ReferencedSeriesSequence[0]
+    assert series.SeriesInstanceUID == original.SeriesInstanceUID
+    assert series.ReferencedSOPSequence[0].ReferencedSOPInstanceUID == original.SOPInstanceUID
+
+    visual = pydicom.dcmread(tmp_path / "out" / artifacts["dicom_visualization"])
+    assert visual.SourceImageSequence[0].ReferencedSOPInstanceUID == original.SOPInstanceUID
+    assert visual.StudyInstanceUID == original.StudyInstanceUID

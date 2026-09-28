@@ -192,11 +192,24 @@ def save_dicom_sr(
     reference.RelationshipType = "CONTAINS"
     reference.ValueType = "IMAGE"
     reference.ConceptNameCodeSequence = [_code("SOURCE", "Source DXA image")]
+    source_class_uid = safe_uid(getattr(source, "SOPClassUID", ""))
+    source_instance_uid = safe_uid(getattr(source, "SOPInstanceUID", "") or result.image_uid)
     referenced_sop = Dataset()
-    referenced_sop.ReferencedSOPClassUID = safe_uid(getattr(source, "SOPClassUID", ""))
-    referenced_sop.ReferencedSOPInstanceUID = safe_uid(result.image_uid)
+    referenced_sop.ReferencedSOPClassUID = source_class_uid
+    referenced_sop.ReferencedSOPInstanceUID = source_instance_uid
     reference.ReferencedSOPSequence = [referenced_sop]
     content.append(reference)
     report.ContentSequence = content
+    # SR Document General module: the instances the report refers to.
+    evidence_sop = Dataset()
+    evidence_sop.ReferencedSOPClassUID = source_class_uid
+    evidence_sop.ReferencedSOPInstanceUID = source_instance_uid
+    evidence_series = Dataset()
+    evidence_series.SeriesInstanceUID = safe_uid(getattr(source, "SeriesInstanceUID", ""))
+    evidence_series.ReferencedSOPSequence = [evidence_sop]
+    evidence_study = Dataset()
+    evidence_study.StudyInstanceUID = report.StudyInstanceUID
+    evidence_study.ReferencedSeriesSequence = [evidence_series]
+    report.CurrentRequestedProcedureEvidenceSequence = [evidence_study]
     report.save_as(output, enforce_file_format=True)
     return output
