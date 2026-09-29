@@ -18,7 +18,13 @@ from .constants import (
     REPORT_COLUMNS,
     SPINE,
 )
-from .dicom_io import anatomical_region, distance_cm_to_pixels, normalize_pixels, read_dicom
+from .dicom_io import (
+    anatomical_region,
+    distance_cm_to_pixels,
+    normalize_pixels,
+    read_dicom,
+    read_identifiers,
+)
 from .features import measure_geometry
 from .markup import SCOLIOSIS_DEVIATION_MM, build_markup
 from .model import DEFAULT_MODEL_PATH, ModelResult, QualityModel
@@ -296,8 +302,11 @@ class Analyzer:
                     (index, dicom, normalized, shown_path, time.perf_counter() - started)
                 )
             except Exception as exc:
+                study_uid, image_uid = read_identifiers(source)
                 result = AnalysisResult(
                     path_to_study=shown_path,
+                    study_uid=study_uid,
+                    image_uid=image_uid,
                     error=str(exc),
                     time_of_processing=round(time.perf_counter() - started, 4),
                 )
@@ -363,7 +372,10 @@ class Analyzer:
             result = self._dxa_result(shown_path, dicom, region, predicted, normalized)
             return result, normalized, predicted
         except Exception as exc:  # one malformed image must not abort a batch
-            result = AnalysisResult(path_to_study=shown_path, error=str(exc))
+            study_uid, image_uid = read_identifiers(source)
+            result = AnalysisResult(
+                path_to_study=shown_path, study_uid=study_uid, image_uid=image_uid, error=str(exc)
+            )
             return result, None, None
         finally:
             elapsed = time.perf_counter() - started

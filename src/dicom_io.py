@@ -118,6 +118,24 @@ def distance_cm_to_pixels(distance_cm: float, spacing_mm: float) -> float:
     return distance_cm * 10.0 / spacing_mm
 
 
+def read_identifiers(path: str | Path) -> tuple[str, str]:
+    """StudyInstanceUID and SOPInstanceUID from the header only.
+
+    Used for a file whose pixels cannot be decoded: its report row still carries
+    the DICOM identifiers, so it can be matched to the source image.
+    """
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            dataset = pydicom.dcmread(Path(path), stop_before_pixels=True, force=True)
+        return (
+            _safe_text(getattr(dataset, "StudyInstanceUID", None)),
+            _safe_text(getattr(dataset, "SOPInstanceUID", None)),
+        )
+    except Exception:
+        return "", ""
+
+
 def read_dicom(path: str | Path) -> DicomImage:
     source = Path(path)
     try:

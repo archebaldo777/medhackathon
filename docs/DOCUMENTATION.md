@@ -230,8 +230,8 @@ python -m src serve [--host 0.0.0.0] [--port 8000]
 | Колонка | Формат | Значение |
 |---|---|---|
 | `path_to_study` | String | Путь относительно входной папки или корня ZIP |
-| `study_uid` | String | `StudyInstanceUID`; пусто, если тега нет |
-| `image_uid` | String | `SOPInstanceUID`; пусто, если тега нет |
+| `study_uid` | String | `StudyInstanceUID`; при `Failure` берётся из заголовка файла; пусто, если тега нет |
+| `image_uid` | String | `SOPInstanceUID`; при `Failure` берётся из заголовка файла; пусто, если тега нет |
 | `anatomical_region` | String | `Поясничный отдел позвоночника` · `Проксимальный отдел бедра (правый)` · `Проксимальный отдел бедра (левый)`; `unknown` при `Failure` |
 | `quality_class` | Integer | `0` / `1`; пусто при `Failure` |
 | `violation_type` | String | Типы через `;`; пусто, если типы не сработали |
@@ -446,7 +446,7 @@ Macro-F1 пяти типов — 0,53, средний ROC-AUC — 0,77. Полн
 ## 14. Тестирование
 
 ```bash
-.venv/bin/pytest        # 52 теста, около 40 с
+.venv/bin/pytest        # 53 теста, около 40 с
 ```
 
 | Файл | Что проверяет |

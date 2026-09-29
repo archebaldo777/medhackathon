@@ -231,8 +231,8 @@ curl -f -X POST http://localhost:8000/v1/analyze \
 | Колонка | Формат | Содержание |
 |---|---|---|
 | `path_to_study` | String | Путь к файлу относительно входной папки или корня ZIP |
-| `study_uid` | String | `StudyInstanceUID` |
-| `image_uid` | String | `SOPInstanceUID` |
+| `study_uid` | String | `StudyInstanceUID` из тегов; заполняется и при `Failure`, если заголовок файла читается |
+| `image_uid` | String | `SOPInstanceUID` из тегов; заполняется и при `Failure`, если заголовок файла читается |
 | `anatomical_region` | String | `Поясничный отдел позвоночника`, `Проксимальный отдел бедра (правый)` или `Проксимальный отдел бедра (левый)` |
 | `quality_class` | Integer | `0` — качественное, `1` — есть нарушение; пусто при `Failure` |
 | `violation_type` | String | Нарушения из закрытого списка через `;`; пусто, если ни один тип не превысил порог (при `quality_class = 1` это значит, что сработала только голова общего качества) |

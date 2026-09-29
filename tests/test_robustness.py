@@ -130,3 +130,23 @@ def test_derived_dicom_objects_reference_the_source_image(tmp_path):
     visual = pydicom.dcmread(tmp_path / "out" / artifacts["dicom_visualization"])
     assert visual.SourceImageSequence[0].ReferencedSOPInstanceUID == original.SOPInstanceUID
     assert visual.StudyInstanceUID == original.StudyInstanceUID
+
+
+def test_failure_row_keeps_dicom_identifiers(tmp_path):
+    """A file with a readable header but broken pixels is still matched by its UIDs."""
+    source = tmp_path / "in"
+    source.mkdir()
+    path = make_dicom(source / "broken.dcm", spine_pixels())
+    dataset = pydicom.dcmread(path)
+    dataset.PixelData = dataset.PixelData[:100]
+    dataset.save_as(path, enforce_file_format=True)
+    (source / "garbage.dcm").write_bytes(b"not a dicom")
+
+    results = {r.path_to_study: r for r in process_directory(source, tmp_path / "out", visualizations=False)}
+    broken = results["broken.dcm"]
+    assert broken.processing_status == "Failure"
+    assert broken.study_uid == dataset.StudyInstanceUID
+    assert broken.image_uid == dataset.SOPInstanceUID
+    garbage = results["garbage.dcm"]
+    assert garbage.processing_status == "Failure"
+    assert garbage.study_uid == "" and garbage.image_uid == ""
