@@ -15,8 +15,11 @@ from .constants import (
     HIP_INFERIOR_MARGIN_CM,
     HIP_LATERAL_MARGIN_CM,
     HIP_SUPERIOR_MARGIN_CM,
+    HIP_LABELS,
     REPORT_COLUMNS,
     SPINE,
+    SPINE_LABELS,
+    VIOLATIONS,
 )
 from .dicom_io import (
     anatomical_region,
@@ -27,7 +30,7 @@ from .dicom_io import (
 )
 from .features import measure_geometry
 from .markup import SCOLIOSIS_DEVIATION_MM, build_markup
-from .model import DEFAULT_MODEL_PATH, ModelResult, QualityModel
+from .model import DEFAULT_MODEL_PATH, ModelResult, QualityModel, align_to_threshold
 from .projection import LATERAL, detect_projection, laterality_from_tags
 
 
@@ -118,6 +121,25 @@ def positioning_recommendations(
             if key in {"spine_positioning", "hip_roi_incorrect"} and failed:
                 measured += f"; по разметке — {failed}"
             items.append({"criterion": title, "measured": measured, "action": action})
+    if predicted.quality_class == 1 and not predicted.violation_keys:
+        # Only the overall quality head fired: name the closest of the five types.
+        thresholds = predicted.head_thresholds or {}
+        candidates = [key for key in (*SPINE_LABELS, *HIP_LABELS) if key in predicted.probabilities]
+        if candidates:
+            closest = max(
+                candidates,
+                key=lambda key: align_to_threshold(predicted.probabilities[key], thresholds.get(key, 0.5)),
+            )
+            items.append(
+                {
+                    "criterion": "Тип нарушения не уточнён",
+                    "measured": (
+                        f"общая оценка качества выше порога; ближе всего — «{VIOLATIONS[closest].title_ru}» "
+                        f"(оценка {predicted.probabilities[closest]:.2f} при пороге {thresholds.get(closest, 0.5):.2f})"
+                    ),
+                    "action": "Проверить снимок специалистом: ни один из пяти типов нарушений не превысил свой порог.",
+                }
+            )
     return items
 
 

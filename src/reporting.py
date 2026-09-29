@@ -36,7 +36,7 @@ def write_xlsx(results: list[AnalysisResult], path: str | Path) -> Path:
         cell.font = Font(color="FFFFFF", bold=True)
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal="center")
-    widths = (42, 35, 35, 38, 14, 46, 18, 20, 16, 18)
+    widths = (42, 35, 35, 38, 14, 46, 18, 20, 16, 18, 60)
     for index, width in enumerate(widths, start=1):
         sheet.column_dimensions[sheet.cell(1, index).column_letter].width = width
     sheet.freeze_panes = "A2"

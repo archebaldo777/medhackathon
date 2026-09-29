@@ -26,7 +26,7 @@ FastAPI + Uvicorn, обработка DICOM через `pydicom`, признак
 
 ## Результаты валидации
 
-Модель обучена на всех 100 исследованиях / 499 изображениях предоставленного набора, 5-fold `StratifiedGroupKFold` по идентификатору исследования (кадры одного пациента не разделяются между train и validation), seed 42. Out-of-fold метрики (полный отчёт — [`reports/validation_metrics_v4.json`](../reports/validation_metrics_v4.json)):
+Модель обучена на всех 100 исследованиях / 499 изображениях предоставленного набора, 5-fold `StratifiedGroupKFold` по идентификатору исследования (кадры одного исследования не разделяются между train и validation; идентификатор пациента в данных обезличен), seed 42. Out-of-fold метрики (полный отчёт — [`reports/validation_metrics_v4.json`](../reports/validation_metrics_v4.json)):
 
 | Голова | F1 | ROC-AUC |
 |---|---:|---:|

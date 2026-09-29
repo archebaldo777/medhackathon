@@ -150,3 +150,47 @@ def test_failure_row_keeps_dicom_identifiers(tmp_path):
     garbage = results["garbage.dcm"]
     assert garbage.processing_status == "Failure"
     assert garbage.study_uid == "" and garbage.image_uid == ""
+
+
+def test_error_column_carries_failure_reason(tmp_path):
+    import csv
+
+    source = tmp_path / "in"
+    source.mkdir()
+    make_dicom(source / "ok.dcm", spine_pixels())
+    (source / "garbage.dcm").write_bytes(b"not a dicom")
+    process_directory(source, tmp_path / "out", visualizations=False)
+    with (tmp_path / "out" / "results.csv").open(encoding="utf-8-sig") as handle:
+        rows = {row["path_to_study"]: row for row in csv.DictReader(handle)}
+    assert rows["garbage.dcm"]["processing_status"] == "Failure"
+    assert rows["garbage.dcm"]["error"]
+    assert rows["ok.dcm"]["error"] == ""
+
+
+def test_quality_class_without_type_is_explained():
+    from src.analyzer import positioning_recommendations
+    from src.model import ModelResult
+
+    predicted = ModelResult(
+        region="spine",
+        quality_class=1,
+        quality_probability=0.7,
+        violation_keys=(),
+        probabilities={
+            "spine_quality": 0.9,
+            "spine_positioning": 0.1,
+            "spine_axis_deviation": 0.19,
+            "foreign_object_or_artifact": 0.2,
+        },
+        model_version="test",
+        decision_threshold=0.5,
+        head_thresholds={
+            "spine_quality": 0.3,
+            "spine_positioning": 0.2,
+            "spine_axis_deviation": 0.2,
+            "foreign_object_or_artifact": 0.7,
+        },
+    )
+    items = positioning_recommendations(predicted, {}, {})
+    assert items[-1]["criterion"] == "Тип нарушения не уточнён"
+    assert "Не выравнена ось" in items[-1]["measured"] or "ось" in items[-1]["measured"]

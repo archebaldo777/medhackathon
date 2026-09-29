@@ -24,6 +24,7 @@ def test_batch_writes_required_reports(tmp_path):
         "time_of_processing",
         "quality_prob",
         "projection",
+        "error",
     )
     input_dir = tmp_path / "input"
     input_dir.mkdir()

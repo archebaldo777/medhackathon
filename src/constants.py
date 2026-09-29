@@ -86,4 +86,5 @@ REPORT_COLUMNS = (
     "time_of_processing",
     "quality_prob",
     "projection",
+    "error",
 )
